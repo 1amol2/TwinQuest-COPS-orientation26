@@ -1,0 +1,9 @@
+services:
+  backend:
+    build: .
+    container_name: twinquest-backend
+    ports:
+      - "8080:8080"
+    environment:
+      MONGODB_URI: ${MONGODB_URI}
+    restart: unless-stopped
