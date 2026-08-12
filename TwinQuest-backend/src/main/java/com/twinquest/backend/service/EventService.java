@@ -1,5 +1,6 @@
 package com.twinquest.backend.service;
 
+import com.twinquest.backend.exception.ResourceNotFoundException;
 import com.twinquest.backend.model.Event;
 import com.twinquest.backend.model.EventStatus;
 import com.twinquest.backend.repository.EventRepository;
@@ -36,7 +37,7 @@ public class EventService {
 
         return eventRepository.findById(eventId)
                 .orElseThrow(() ->
-                        new RuntimeException(
+                        new ResourceNotFoundException(
                                 "Event not found: " + eventId
                         )
                 );
@@ -46,7 +47,7 @@ public class EventService {
 
         return eventRepository.findByEventCode(eventCode)
                 .orElseThrow(() ->
-                        new RuntimeException(
+                        new ResourceNotFoundException(
                                 "Event not found: " + eventCode
                         )
                 );
@@ -60,7 +61,7 @@ public class EventService {
                         EventStatus.ACTIVE
                 )
                 .orElseThrow(() ->
-                        new RuntimeException(
+                        new ResourceNotFoundException(
                                 "Active event not found: " + eventCode
                         )
                 );

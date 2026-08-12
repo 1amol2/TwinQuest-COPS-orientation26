@@ -4,6 +4,7 @@ import com.twinquest.backend.dto.request.CreateEventRequest;
 import com.twinquest.backend.dto.response.EventResponse;
 import com.twinquest.backend.model.Event;
 import com.twinquest.backend.service.EventService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,7 +18,7 @@ public class EventController {
 
     @PostMapping
     public ResponseEntity<Event> createEvent(
-            @RequestBody CreateEventRequest request
+            @Valid @RequestBody CreateEventRequest request
             ) {
 
         Event event = eventService.createEvent(request.getEventCode(), request.getName());

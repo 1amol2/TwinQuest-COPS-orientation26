@@ -4,6 +4,7 @@ import com.twinquest.backend.dto.request.JoinPlayerRequest;
 import com.twinquest.backend.dto.response.PlayerResponse;
 import com.twinquest.backend.model.Player;
 import com.twinquest.backend.service.PlayerService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,7 +18,7 @@ public class PlayerController {
 
     @PostMapping("/join")
     public ResponseEntity<PlayerResponse> joinEvent(
-            @RequestBody JoinPlayerRequest request
+            @Valid @RequestBody JoinPlayerRequest request
     ) {
 
         Player player = playerService.createPlayer(

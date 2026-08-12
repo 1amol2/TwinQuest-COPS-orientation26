@@ -1,5 +1,6 @@
 package com.twinquest.backend.service;
 
+import com.twinquest.backend.exception.ResourceNotFoundException;
 import com.twinquest.backend.model.Player;
 import com.twinquest.backend.model.PlayerStatus;
 import com.twinquest.backend.repository.PlayerRepository;
@@ -44,7 +45,7 @@ public class PlayerService {
 
         return playerRepository.findById(playerId)
                 .orElseThrow(() ->
-                        new RuntimeException(
+                        new ResourceNotFoundException(
                                 "Player not found: " + playerId
                         )
                 );

@@ -1,5 +1,6 @@
 package com.twinquest.backend.service;
 
+import com.twinquest.backend.exception.ResourceNotFoundException;
 import com.twinquest.backend.model.Pair;
 import com.twinquest.backend.model.PairStatus;
 import com.twinquest.backend.model.Player;
@@ -90,7 +91,7 @@ public class MatchService {
 
         Pair pair = pairRepository.findById(pairId)
                 .orElseThrow(() ->
-                        new RuntimeException(
+                        new ResourceNotFoundException(
                                 "Pair not found: " + pairId
                         )
                 );
@@ -107,7 +108,7 @@ public class MatchService {
 
         Pair pair = pairRepository.findById(pairId)
                 .orElseThrow(() ->
-                        new RuntimeException(
+                        new ResourceNotFoundException(
                                 "Pair not found: " + pairId
                         )
                 );
@@ -184,7 +185,7 @@ public class MatchService {
 
         return pairRepository.findById(pairId)
                 .orElseThrow(() ->
-                        new RuntimeException(
+                        new ResourceNotFoundException(
                                 "Pair not found: " + pairId
                         )
                 );

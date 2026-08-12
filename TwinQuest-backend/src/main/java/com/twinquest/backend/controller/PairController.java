@@ -5,6 +5,7 @@ import com.twinquest.backend.dto.request.UpdatePairStatusRequest;
 import com.twinquest.backend.dto.response.PairResponse;
 import com.twinquest.backend.model.Pair;
 import com.twinquest.backend.service.MatchService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -63,7 +64,7 @@ public class PairController {
     @PatchMapping("/{pairId}/status")
     public ResponseEntity<PairResponse> updateStatus(
             @PathVariable String pairId,
-            @RequestBody UpdatePairStatusRequest request
+            @Valid @RequestBody UpdatePairStatusRequest request
     ) {
 
         Pair pair = matchService.updatePairStatus(
@@ -93,7 +94,7 @@ public class PairController {
     @PostMapping("/{pairId}/complete")
     public ResponseEntity<PairResponse> completeMatch(
             @PathVariable String pairId,
-            @RequestBody CompleteMatchRequest request
+            @Valid @RequestBody CompleteMatchRequest request
     ) {
 
         Pair pair = matchService.completeMatch(
