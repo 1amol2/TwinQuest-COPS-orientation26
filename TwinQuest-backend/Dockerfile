@@ -1,14 +1,11 @@
 # ---------- Build stage ----------
-FROM eclipse-temurin:21-jdk AS builder
+FROM gradle:9.5.1-jdk21 AS builder
 
 WORKDIR /app
 
-COPY gradlew .
-COPY gradle gradle
-COPY build.gradle* settings.gradle* ./
-COPY src src
+COPY . .
 
-RUN chmod +x gradlew && ./gradlew bootJar --no-daemon
+RUN gradle bootJar --no-daemon
 
 
 # ---------- Runtime stage ----------
