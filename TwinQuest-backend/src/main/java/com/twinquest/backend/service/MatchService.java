@@ -1,5 +1,6 @@
 package com.twinquest.backend.service;
 
+import com.twinquest.backend.exception.BadRequestException;
 import com.twinquest.backend.exception.ResourceNotFoundException;
 import com.twinquest.backend.model.Pair;
 import com.twinquest.backend.model.PairStatus;
@@ -71,12 +72,12 @@ public class MatchService {
             PairStatus status
     ) {
 
-        Pair pair = pairRepository.findById(pairId)
-                .orElseThrow(() ->
-                        new RuntimeException(
-                                "Pair not found: " + pairId
-                        )
-                );
+        Pair pair = getPairById(pairId);
+
+        validateStatusTransition(
+                pair.getStatus(),
+                status
+        );
 
         pair.setStatus(status);
 
@@ -89,12 +90,12 @@ public class MatchService {
 
     public Pair confirmMatch(String pairId) {
 
-        Pair pair = pairRepository.findById(pairId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Pair not found: " + pairId
-                        )
-                );
+        Pair pair = getPairById(pairId);
+
+        validateStatusTransition(
+                pair.getStatus(),
+                PairStatus.CONFIRMED
+        );
 
         pair.setStatus(PairStatus.CONFIRMED);
 
@@ -106,19 +107,18 @@ public class MatchService {
             Long completionTimeMs
     ) {
 
-        Pair pair = pairRepository.findById(pairId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Pair not found: " + pairId
-                        )
-                );
+        Pair pair = getPairById(pairId);
+
+        validateStatusTransition(
+                pair.getStatus(),
+                PairStatus.COMPLETED
+        );
 
         pair.setStatus(PairStatus.COMPLETED);
         pair.setCompletionTimeMs(completionTimeMs);
 
         return pairRepository.save(pair);
     }
-
     private void updatePlayerStatus(
             String playerId,
             PlayerStatus status
@@ -189,5 +189,37 @@ public class MatchService {
                                 "Pair not found: " + pairId
                         )
                 );
+    }
+    private void validateStatusTransition(
+            PairStatus current,
+            PairStatus next
+    ) {
+
+        boolean valid = switch (current) {
+
+            case CREATED ->
+                    next == PairStatus.SEARCHING;
+
+            case SEARCHING ->
+                    next == PairStatus.FOUND;
+
+            case FOUND ->
+                    next == PairStatus.CONFIRMED;
+
+            case CONFIRMED ->
+                    next == PairStatus.COMPLETED;
+
+            case COMPLETED ->
+                    false;
+        };
+
+        if (!valid) {
+            throw new BadRequestException(
+                    "Invalid pair status transition: "
+                            + current
+                            + " -> "
+                            + next
+            );
+        }
     }
 }
