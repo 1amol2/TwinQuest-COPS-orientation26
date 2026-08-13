@@ -77,4 +77,5 @@ public class EventService {
         eventRepository.deleteById(eventId);
     }
 
+
 }
