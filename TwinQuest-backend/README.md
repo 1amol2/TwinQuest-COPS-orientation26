@@ -8,23 +8,18 @@ The backend is built with Spring Boot and MongoDB. It manages events, players, m
 
 ## Base URL
 
-For local development:
+For the deployed production backend on Railway:
 
 ```text
-http://localhost:8080
+https://twinquest-cops-orientation26-production-4aed.up.railway.app
+```
+### Production API Example
+
+```http
+GET https://twinquest-cops-orientation26-production-4aed.up.railway.app/api/events/code/{eventCode}
 ```
 
-For a physical Android device connected to the same Wi-Fi network as the backend laptop:
-
-```text
-http://<YOUR-LAPTOP-IP>:8080
-```
-
-Example:
-
-```text
-http://192.168.1.10:8080
-```
+The Flutter application should use the Railway URL when connecting to the deployed backend.
 
 ---
 
@@ -41,6 +36,7 @@ http://192.168.1.10:8080
 | Get pair           | GET    | `/api/pairs/{pairId}`          |
 | Get pair by player | GET    | `/api/pairs/player/{playerId}` |
 | Get pairs by event | GET    | `/api/pairs/event/{eventId}`   |
+| Get leaderboard     | GET    | `/api/leaderboard/{eventId}`     |
 | Update pair status | PATCH  | `/api/pairs/{pairId}/status`   |
 | Confirm pair       | POST   | `/api/pairs/{pairId}/confirm`  |
 | Complete pair      | POST   | `/api/pairs/{pairId}/complete` |
@@ -647,7 +643,69 @@ POST /api/pairs/6a7b35418c8020bb16b9074a/complete
 
 ---
 
-# 9. Error Responses
+# 9. Leaderboard API
+
+## Get Leaderboard
+
+Returns the completed pairs for an event, sorted by completion time in ascending order. The fastest completed pair appears first.
+
+### Request
+
+```http
+GET /api/leaderboard/{eventId}
+```
+
+### Production Example
+
+```http
+GET https://twinquest-cops-orientation26-production-4aed.up.railway.app/api/leaderboard/{eventId}
+```
+
+### Response
+
+```text
+200 OK
+```
+
+```json
+[
+  {
+    "rank": 1,
+    "playerA": "Amol",
+    "playerB": "Rahul",
+    "completionTimeMs": 12450
+  },
+  {
+    "rank": 2,
+    "playerA": "Aman",
+    "playerB": "Priya",
+    "completionTimeMs": 13800
+  }
+]
+```
+
+### Response Fields
+
+```text
+rank              → leaderboard position
+playerA           → name of Player A
+playerB           → name of Player B
+completionTimeMs  → time taken by the pair in milliseconds
+```
+
+Only pairs with status `COMPLETED` and a non-null `completionTimeMs` are included.
+
+If no completed pairs exist for the event, the endpoint returns:
+
+```json
+[]
+```
+
+The Flutter leaderboard screen can call this endpoint using the event ID and display the returned entries directly.
+
+---
+
+# 10. Error Responses
 
 The backend provides a consistent error structure.
 
@@ -739,7 +797,7 @@ Example:
 
 ---
 
-# 10. Complete Frontend Flow
+# 11. Complete Frontend Flow
 
 The basic REST flow is:
 
@@ -789,7 +847,7 @@ POST /api/pairs/{pairId}/complete
 
 ---
 
-# 11. Frontend Integration Notes
+# 12. Frontend Integration Notes
 
 The frontend should store the following IDs when they are returned by the backend:
 
@@ -816,7 +874,7 @@ The frontend should use the `pairId` for subsequent pair operations.
 
 ---
 
-# 12. Local Android Development
+# 13. Local Android Development
 
 When the backend is running on the developer's laptop, the correct base URL depends on where the Flutter application is running.
 
@@ -856,7 +914,7 @@ The backend server and firewall must allow connections from the device.
 
 ---
 
-# 13. Current Backend Responsibilities
+# 14. Current Backend Responsibilities
 
 The backend currently handles:
 
@@ -878,7 +936,7 @@ The backend currently handles:
 
 ---
 
-# 14. Current Pair Lifecycle
+# 15. Current Pair Lifecycle
 
 ```text
 Player joins
@@ -908,7 +966,7 @@ COMPLETED
 
 ---
 
-# 15. Example Complete Session
+# 16. Example Complete Session
 
 Assume the event is:
 
@@ -1002,7 +1060,7 @@ COMPLETED
 
 ---
 
-# 16. Backend Scope
+# 17. Backend Scope
 
 This REST API is responsible for the backend data and matchmaking flow.
 
@@ -1010,11 +1068,11 @@ Real-time communication, Bluetooth communication, Flutter UI, and client-side in
 
 ---
 
-# 17. Testing
+# 18. Testing
 
 The REST endpoints have been manually tested using Postman.
 
-The complete tested flow is:
+The complete TwinQuest flow has also been covered by an automated Spring Boot integration test:
 
 ```text
 Create Event
@@ -1036,13 +1094,29 @@ SEARCHING → FOUND
 FOUND → CONFIRMED
       ↓
 CONFIRMED → COMPLETED
+      ↓
+Get Leaderboard
+```
+
+The automated integration test can be run with Gradle:
+
+```powershell
+.\gradlew test --tests com.twinquest.backend.TwinQuestApiIntegrationTest
+```
+
+The test starts the backend locally on a random port and executes the complete API flow automatically. It does not use the Railway URL.
+
+For testing the deployed production backend manually, use:
+
+```text
+https://twinquest-cops-orientation26-production-4aed.up.railway.app
 ```
 
 All core REST operations in this flow have been verified during backend development.
 
 ---
 
-# 18. Status Values
+# 19. Status Values
 
 ## Player Status
 
@@ -1082,7 +1156,7 @@ COMPLETED
 
 ---
 
-# 19. Recommended Frontend API Layer
+# 20. Recommended Frontend API Layer
 
 The Flutter application should keep API communication separate from UI code.
 
@@ -1112,7 +1186,7 @@ The frontend should treat the backend responses documented above as the API cont
 
 ---
 
-# 20. Summary
+# 21. Summary
 
 TwinQuest's REST backend provides the complete server-side flow required to create events, register players, find pairs, track pair state, and record match completion.
 
