@@ -17,13 +17,17 @@ public class EventController {
     private final EventService eventService;
 
     @PostMapping
-    public ResponseEntity<Event> createEvent(
+    public ResponseEntity<EventResponse> createEvent(
             @Valid @RequestBody CreateEventRequest request
-            ) {
+    ) {
+        Event event = eventService.createEvent(
+                request.getEventCode(),
+                request.getName()
+        );
 
-        Event event = eventService.createEvent(request.getEventCode(), request.getName());
-
-        return ResponseEntity.ok(event);
+        return ResponseEntity.ok(
+                EventResponse.from(event)
+        );
     }
     @GetMapping("/code/{eventCode}")
     public ResponseEntity<EventResponse> getEventByCode(
@@ -45,4 +49,5 @@ public class EventController {
                 EventResponse.from(event)
         );
     }
+
 }
