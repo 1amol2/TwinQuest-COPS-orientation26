@@ -1213,3 +1213,407 @@ COMPLETED
 ```
 
 The frontend can integrate with these endpoints independently of the internal Spring Boot service and repository implementation.
+
+# 22. WebSocket Integration — Flutter Pairing
+
+TwinQuest uses WebSocket with STOMP for real-time communication during the pairing flow.
+
+The WebSocket connection is intended for the pairing screen so the Flutter application does not need to repeatedly poll the backend for pair-status changes.
+
+## WebSocket Endpoint
+
+### Production
+
+```text
+wss://twinquest-cops-orientation26-production-4aed.up.railway.app/ws
+```
+
+### Local Development
+
+Android Emulator:
+
+```text
+ws://10.0.2.2:8080/ws
+```
+
+Physical Android Device:
+
+```text
+ws://<LAPTOP_IP>:8080/ws
+```
+
+Use `wss://` for the deployed Railway backend.
+
+## STOMP Destinations
+
+### Client → Server
+
+Join pairing:
+
+```text
+/app/pairing/join
+```
+
+Leave pairing:
+
+```text
+/app/pairing/leave
+```
+
+### Server → Client
+
+Subscribe to the player's private destination:
+
+```text
+/topic/player/{playerId}
+```
+
+Example:
+
+```text
+/topic/player/PLAYER_ID
+```
+
+## 1. Connect to WebSocket
+
+When the user enters the pairing screen:
+
+```text
+Flutter Pairing Screen
+        ↓
+Connect WebSocket
+        ↓
+STOMP connection established
+        ↓
+Subscribe to /topic/player/{playerId}
+        ↓
+Send /app/pairing/join
+```
+
+The WebSocket connection should remain active while the player is on the pairing screen.
+
+## 2. Join Pairing Session
+
+Send:
+
+```text
+/app/pairing/join
+```
+
+Body:
+
+```json
+{
+  "playerId": "PLAYER_ID"
+}
+```
+
+Example:
+
+```json
+{
+  "playerId": "6a7b34698c8020bb16b90748"
+}
+```
+
+The backend associates the WebSocket session with the player.
+
+## 3. Subscribe to Player Events
+
+Subscribe to:
+
+```text
+/topic/player/{playerId}
+```
+
+The backend sends pairing lifecycle events to this destination.
+
+## 4. WebSocket Event Format
+
+```json
+{
+  "type": "PAIR_FOUND",
+  "eventId": "EVENT_ID",
+  "pairId": "PAIR_ID",
+  "playerId": "PLAYER_A_ID",
+  "opponentId": "PLAYER_B_ID",
+  "status": "FOUND",
+  "completionTimeMs": null
+}
+```
+
+Fields:
+
+```text
+type
+→ WebSocket event type
+
+eventId
+→ TwinQuest event ID
+
+pairId
+→ Current pair ID
+
+playerId
+→ Player receiving the event
+
+opponentId
+→ The other player in the pair
+
+status
+→ Current pair status
+
+completionTimeMs
+→ Match completion time when available
+```
+
+## 5. Pairing Lifecycle Events
+
+The backend sends:
+
+```text
+PAIR_CREATED
+      ↓
+PAIR_SEARCHING
+      ↓
+PAIR_FOUND
+      ↓
+PAIR_CONFIRMED
+      ↓
+PAIR_COMPLETED
+```
+
+### PAIR_CREATED
+
+```json
+{
+  "type": "PAIR_CREATED",
+  "eventId": "EVENT_ID",
+  "pairId": "PAIR_ID",
+  "playerId": "PLAYER_A_ID",
+  "opponentId": "PLAYER_B_ID",
+  "status": "CREATED",
+  "completionTimeMs": null
+}
+```
+
+### PAIR_SEARCHING
+
+```json
+{
+  "type": "PAIR_SEARCHING",
+  "eventId": "EVENT_ID",
+  "pairId": "PAIR_ID",
+  "playerId": "PLAYER_A_ID",
+  "opponentId": "PLAYER_B_ID",
+  "status": "SEARCHING",
+  "completionTimeMs": null
+}
+```
+
+### PAIR_FOUND
+
+```json
+{
+  "type": "PAIR_FOUND",
+  "eventId": "EVENT_ID",
+  "pairId": "PAIR_ID",
+  "playerId": "PLAYER_A_ID",
+  "opponentId": "PLAYER_B_ID",
+  "status": "FOUND",
+  "completionTimeMs": null
+}
+```
+
+### PAIR_CONFIRMED
+
+```json
+{
+  "type": "PAIR_CONFIRMED",
+  "eventId": "EVENT_ID",
+  "pairId": "PAIR_ID",
+  "playerId": "PLAYER_A_ID",
+  "opponentId": "PLAYER_B_ID",
+  "status": "CONFIRMED",
+  "completionTimeMs": null
+}
+```
+
+### PAIR_COMPLETED
+
+```json
+{
+  "type": "PAIR_COMPLETED",
+  "eventId": "EVENT_ID",
+  "pairId": "PAIR_ID",
+  "playerId": "PLAYER_A_ID",
+  "opponentId": "PLAYER_B_ID",
+  "status": "COMPLETED",
+  "completionTimeMs": 12500
+}
+```
+
+## 6. Flutter Pairing Screen Flow
+
+```text
+User enters Pairing Screen
+          ↓
+Create WebSocket connection
+          ↓
+STOMP CONNECT
+          ↓
+Subscribe to /topic/player/{playerId}
+          ↓
+SEND /app/pairing/join
+          ↓
+Wait for WebSocket events
+          ↓
+PAIR_CREATED
+          ↓
+PAIR_SEARCHING
+          ↓
+PAIR_FOUND
+          ↓
+PAIR_CONFIRMED
+          ↓
+PAIR_COMPLETED
+          ↓
+Update Flutter UI
+```
+
+## 7. Pairing Screen State Mapping
+
+```text
+PAIR_CREATED
+    ↓
+Initializing pairing
+
+PAIR_SEARCHING
+    ↓
+Searching / waiting for match
+
+PAIR_FOUND
+    ↓
+Opponent found
+
+PAIR_CONFIRMED
+    ↓
+Match confirmed
+
+PAIR_COMPLETED
+    ↓
+Show completion/result screen
+```
+
+## 8. Leaving the Pairing Screen
+
+When the user intentionally leaves the pairing screen, send:
+
+```text
+/app/pairing/leave
+```
+
+Body:
+
+```json
+{
+  "playerId": "PLAYER_ID"
+}
+```
+
+Then close the STOMP/WebSocket connection.
+
+## 9. Unexpected Disconnect
+
+The backend handles unexpected WebSocket disconnections automatically:
+
+```text
+WebSocket connection lost
+        ↓
+SessionDisconnectEvent
+        ↓
+WebSocketSessionListener
+        ↓
+PairingSessionService.leave()
+        ↓
+Player session removed
+```
+
+The frontend does not need a special request when the connection unexpectedly disappears.
+
+## 10. IDs Required by Frontend
+
+Store:
+
+```text
+eventId
+playerId
+pairId
+```
+
+The `playerId` is required for the WebSocket subscription:
+
+```text
+/topic/player/{playerId}
+```
+
+The `pairId` is obtained from the pairing WebSocket event.
+
+## 11. REST + WebSocket Responsibilities
+
+Use REST for operations such as:
+
+```text
+Join event
+Create matchmaking request
+Get player
+Get pair
+Get leaderboard
+Confirm pair
+Complete pair
+```
+
+Use WebSocket for real-time pairing updates:
+
+```text
+PAIR_CREATED
+PAIR_SEARCHING
+PAIR_FOUND
+PAIR_CONFIRMED
+PAIR_COMPLETED
+```
+
+The pairing screen should listen to WebSocket events for real-time state changes instead of continuously polling the pair endpoint.
+
+## 12. Frontend Architecture
+
+```text
+                    Flutter
+                       │
+             ┌─────────┴─────────┐
+             │                   │
+        REST API             WebSocket
+             │                   │
+             ▼                   ▼
+      Spring Boot API      STOMP /ws
+             │                   │
+             │                   ▼
+             │          /topic/player/{id}
+             │                   │
+             └─────────┬─────────┘
+                       ▼
+                  Pairing Screen
+                       │
+                       ▼
+                Update UI State
+```
+
+The backend WebSocket implementation has been integration-tested with two simultaneous clients. Both players successfully receive the complete pair lifecycle:
+
+```text
+PAIR_CREATED
+PAIR_SEARCHING
+PAIR_FOUND
+PAIR_CONFIRMED
+PAIR_COMPLETED
+```
