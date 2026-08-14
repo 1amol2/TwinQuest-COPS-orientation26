@@ -7,6 +7,8 @@ import com.twinquest.backend.model.PairStatus;
 import com.twinquest.backend.model.Player;
 import com.twinquest.backend.model.PlayerStatus;
 import com.twinquest.backend.repository.PairRepository;
+import com.twinquest.backend.websocket.WebSocketEvent;
+import com.twinquest.backend.websocket.WebSocketService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -20,6 +22,7 @@ public class MatchService {
 
     private final PairRepository pairRepository;
     private final PlayerService playerService;
+    private final WebSocketService webSocketService;
 
     public Pair createPair(
             String eventId,
@@ -31,7 +34,7 @@ public class MatchService {
                 .eventId(eventId)
                 .playerAId(playerAId)
                 .playerBId(playerBId)
-                .status(PairStatus.SEARCHING)
+                .status(PairStatus.CREATED)
                 .createdAt(Instant.now())
                 .build();
 
@@ -40,9 +43,54 @@ public class MatchService {
         updatePlayerStatus(playerAId, PlayerStatus.PAIRED);
         updatePlayerStatus(playerBId, PlayerStatus.PAIRED);
 
+        notifyPlayers(
+                savedPair,
+                "PAIR_CREATED"
+        );
+
         return savedPair;
     }
+    private void notifyPlayers(
+            Pair pair,
+            String eventType
+    ) {
 
+        WebSocketEvent playerAEvent =
+                WebSocketEvent.builder()
+                        .type(eventType)
+                        .eventId(pair.getEventId())
+                        .pairId(pair.getId())
+                        .playerId(pair.getPlayerAId())
+                        .opponentId(pair.getPlayerBId())
+                        .status(pair.getStatus().name())
+                        .completionTimeMs(
+                                pair.getCompletionTimeMs()
+                        )
+                        .build();
+
+        WebSocketEvent playerBEvent =
+                WebSocketEvent.builder()
+                        .type(eventType)
+                        .eventId(pair.getEventId())
+                        .pairId(pair.getId())
+                        .playerId(pair.getPlayerBId())
+                        .opponentId(pair.getPlayerAId())
+                        .status(pair.getStatus().name())
+                        .completionTimeMs(
+                                pair.getCompletionTimeMs()
+                        )
+                        .build();
+
+        webSocketService.sendToPlayer(
+                pair.getPlayerAId(),
+                playerAEvent
+        );
+
+        webSocketService.sendToPlayer(
+                pair.getPlayerBId(),
+                playerBEvent
+        );
+    }
     public Pair findPairByPlayerId(String playerId) {
 
         return pairRepository
@@ -85,9 +133,23 @@ public class MatchService {
             pair.setMatchedAt(Instant.now());
         }
 
-        return pairRepository.save(pair);
-    }
+        Pair savedPair = pairRepository.save(pair);
 
+        String eventType = switch (status) {
+            case CREATED -> "PAIR_CREATED";
+            case SEARCHING -> "PAIR_SEARCHING";
+            case FOUND -> "PAIR_FOUND";
+            case CONFIRMED -> "PAIR_CONFIRMED";
+            case COMPLETED -> "PAIR_COMPLETED";
+        };
+
+        notifyPlayers(
+                savedPair,
+                eventType
+        );
+
+        return savedPair;
+    }
     public Pair confirmMatch(String pairId) {
 
         Pair pair = getPairById(pairId);
@@ -99,7 +161,14 @@ public class MatchService {
 
         pair.setStatus(PairStatus.CONFIRMED);
 
-        return pairRepository.save(pair);
+        Pair savedPair = pairRepository.save(pair);
+
+        notifyPlayers(
+                savedPair,
+                "PAIR_CONFIRMED"
+        );
+
+        return savedPair;
     }
 
     public Pair completeMatch(
@@ -117,7 +186,14 @@ public class MatchService {
         pair.setStatus(PairStatus.COMPLETED);
         pair.setCompletionTimeMs(completionTimeMs);
 
-        return pairRepository.save(pair);
+        Pair savedPair = pairRepository.save(pair);
+
+        notifyPlayers(
+                savedPair,
+                "PAIR_COMPLETED"
+        );
+
+        return savedPair;
     }
     private void updatePlayerStatus(
             String playerId,
@@ -165,19 +241,10 @@ public class MatchService {
                 playerB.get().getId()
         );
 
-
-        // Now actual pair exists
-
-        updatePlayerStatus(
-                playerA.get().getId(),
-                PlayerStatus.PAIRED
+        pair = updatePairStatus(
+                pair.getId(),
+                PairStatus.SEARCHING
         );
-
-        updatePlayerStatus(
-                playerB.get().getId(),
-                PlayerStatus.PAIRED
-        );
-
 
         return pair;
     }
