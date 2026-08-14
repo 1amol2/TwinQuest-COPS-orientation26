@@ -136,11 +136,11 @@ public class MatchService {
         Pair savedPair = pairRepository.save(pair);
 
         String eventType = switch (status) {
+            case CREATED -> "PAIR_CREATED";
             case SEARCHING -> "PAIR_SEARCHING";
             case FOUND -> "PAIR_FOUND";
             case CONFIRMED -> "PAIR_CONFIRMED";
             case COMPLETED -> "PAIR_COMPLETED";
-            case CREATED -> "PAIR_CREATED";
         };
 
         notifyPlayers(
@@ -150,7 +150,6 @@ public class MatchService {
 
         return savedPair;
     }
-
     public Pair confirmMatch(String pairId) {
 
         Pair pair = getPairById(pairId);

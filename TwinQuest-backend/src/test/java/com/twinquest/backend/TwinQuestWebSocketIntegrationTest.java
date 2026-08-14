@@ -1,9 +1,8 @@
 package com.twinquest.backend;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.twinquest.backend.model.Player;
 import com.twinquest.backend.model.Pair;
-import com.twinquest.backend.service.EventService;
+import com.twinquest.backend.model.PairStatus;
+import com.twinquest.backend.model.Player;
 import com.twinquest.backend.service.MatchService;
 import com.twinquest.backend.service.PlayerService;
 import org.junit.jupiter.api.Test;
@@ -23,7 +22,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -87,16 +85,25 @@ class TwinQuestWebSocketIntegrationTest {
 
         /*
          * ---------------------------------------------------------
-         * 2. CONNECT TO WEBSOCKET
+         * 2. CONNECT BOTH PLAYERS TO WEBSOCKET
          * ---------------------------------------------------------
          */
 
-        WebSocketStompClient stompClient =
+        WebSocketStompClient stompClientA =
                 new WebSocketStompClient(
                         new StandardWebSocketClient()
                 );
 
-        stompClient.setMessageConverter(
+        WebSocketStompClient stompClientB =
+                new WebSocketStompClient(
+                        new StandardWebSocketClient()
+                );
+
+        stompClientA.setMessageConverter(
+                new MappingJackson2MessageConverter()
+        );
+
+        stompClientB.setMessageConverter(
                 new MappingJackson2MessageConverter()
         );
 
@@ -104,78 +111,76 @@ class TwinQuestWebSocketIntegrationTest {
                 "ws://localhost:" + port + "/ws";
 
         System.out.println(
-                "Connecting to: " + websocketUrl
+                "Connecting Player A to: "
+                        + websocketUrl
         );
 
-        TestStompHandler sessionHandler =
+        System.out.println(
+                "Connecting Player B to: "
+                        + websocketUrl
+        );
+
+        TestStompHandler handlerA =
                 new TestStompHandler();
 
-        CompletableFuture<StompSession> future =
-                stompClient.connectAsync(
+        TestStompHandler handlerB =
+                new TestStompHandler();
+
+        StompSession sessionA =
+                stompClientA.connectAsync(
                         websocketUrl,
-                        sessionHandler
-                );
+                        handlerA
+                ).get(10, TimeUnit.SECONDS);
 
-        StompSession session =
-                future.get(10, TimeUnit.SECONDS);
+        StompSession sessionB =
+                stompClientB.connectAsync(
+                        websocketUrl,
+                        handlerB
+                ).get(10, TimeUnit.SECONDS);
 
-        assertTrue(session.isConnected());
+        assertTrue(sessionA.isConnected());
+        assertTrue(sessionB.isConnected());
 
-        System.out.println("WEBSOCKET CONNECTED");
+        System.out.println(
+                "PLAYER A WEBSOCKET CONNECTED"
+        );
+
+        System.out.println(
+                "PLAYER B WEBSOCKET CONNECTED"
+        );
 
         /*
          * ---------------------------------------------------------
-         * 3. SUBSCRIBE TO PLAYER A
+         * 3. SUBSCRIBE EACH PLAYER TO THEIR OWN TOPIC
          * ---------------------------------------------------------
          */
 
-        String destination =
-                "/topic/player/" + playerA.getId();
-
         System.out.println(
-                "SUBSCRIBING TO: " + destination
+                "Subscribing Player A..."
         );
 
-        session.subscribe(
-                destination,
-                new StompFrameHandler() {
+        sessionA.subscribe(
+                "/topic/player/" + playerA.getId(),
+                createFrameHandler(handlerA)
+        );
 
-                    @Override
-                    public Type getPayloadType(
-                            StompHeaders headers
-                    ) {
-                        return Map.class;
-                    }
+        System.out.println(
+                "Subscribing Player B..."
+        );
 
-                    @Override
-                    public void handleFrame(
-                            StompHeaders headers,
-                            Object payload
-                    ) {
-
-                        System.out.println(
-                                "WEBSOCKET EVENT RECEIVED: "
-                                        + payload
-                        );
-
-                        sessionHandler.addEvent(
-                                (Map<?, ?>) payload
-                        );
-                    }
-                }
+        sessionB.subscribe(
+                "/topic/player/" + playerB.getId(),
+                createFrameHandler(handlerB)
         );
 
         /*
-         * IMPORTANT:
-         *
-         * Give the subscription a moment to become active
-         * before triggering the pair creation.
+         * Give both subscriptions time to become active.
          */
         Thread.sleep(300);
 
         /*
          * ---------------------------------------------------------
-         * 4. CREATE PAIR
+         * 4. CREATE MATCH
          * ---------------------------------------------------------
          */
 
@@ -190,39 +195,176 @@ class TwinQuestWebSocketIntegrationTest {
 
         /*
          * ---------------------------------------------------------
-         * 5. WAIT FOR CREATED + SEARCHING
+         * 5. VERIFY PAIR CREATED
          * ---------------------------------------------------------
          */
 
         waitForEvent(
-                sessionHandler,
+                handlerA,
                 "PAIR_CREATED"
         );
 
         waitForEvent(
-                sessionHandler,
-                "PAIR_SEARCHING"
+                handlerB,
+                "PAIR_CREATED"
         );
 
         /*
          * ---------------------------------------------------------
-         * 6. SEARCHING → FOUND
+         * 6. VERIFY SEARCHING
+         * ---------------------------------------------------------
+         *
+         * findAndCreateMatch() already moves:
+         *
+         * CREATED → SEARCHING
+         *
+         * and sends PAIR_SEARCHING.
+         */
+
+        waitForEvent(
+                handlerA,
+                "PAIR_SEARCHING"
+        );
+
+        waitForEvent(
+                handlerB,
+                "PAIR_SEARCHING"
+        );
+        /*
+         * ---------------------------------------------------------
+         * 7. SEARCHING → FOUND
          * ---------------------------------------------------------
          */
 
         matchService.updatePairStatus(
                 pair.getId(),
-                com.twinquest.backend.model.PairStatus.FOUND
+                PairStatus.FOUND
         );
 
         waitForEvent(
-                sessionHandler,
+                handlerA,
+                "PAIR_FOUND"
+        );
+
+        waitForEvent(
+                handlerB,
                 "PAIR_FOUND"
         );
 
         /*
          * ---------------------------------------------------------
-         * 7. FOUND → CONFIRMED
+         * 8. VERIFY FOUND EVENT DATA
+         * ---------------------------------------------------------
+         */
+
+        Map<?, ?> foundEventA =
+                handlerA.findEvent("PAIR_FOUND");
+
+        Map<?, ?> foundEventB =
+                handlerB.findEvent("PAIR_FOUND");
+
+        assertNotNull(foundEventA);
+        assertNotNull(foundEventB);
+
+        System.out.println();
+        System.out.println("========== FOUND EVENT DEBUG ==========");
+
+        System.out.println(
+                "Player A expected ID : "
+                        + playerA.getId()
+        );
+
+        System.out.println(
+                "Player A received    : "
+                        + foundEventA
+        );
+
+        System.out.println();
+
+        System.out.println(
+                "Player B expected ID : "
+                        + playerB.getId()
+        );
+
+        System.out.println(
+                "Player B received    : "
+                        + foundEventB
+        );
+
+        System.out.println("=======================================");
+
+        /*
+         * Player A should receive:
+         *
+         * playerId   = Player A
+         * opponentId = Player B
+         */
+
+        assertEquals(
+                playerA.getId(),
+                String.valueOf(
+                        foundEventA.get("playerId")
+                )
+        );
+
+        assertEquals(
+                playerB.getId(),
+                String.valueOf(
+                        foundEventA.get("opponentId")
+                )
+        );
+
+        /*
+         * Player B should receive:
+         *
+         * playerId   = Player B
+         * opponentId = Player A
+         */
+
+        assertEquals(
+                playerB.getId(),
+                String.valueOf(
+                        foundEventB.get("playerId")
+                )
+        );
+
+        assertEquals(
+                playerA.getId(),
+                String.valueOf(
+                        foundEventB.get("opponentId")
+                )
+        );
+
+        assertEquals(
+                pair.getId(),
+                String.valueOf(
+                        foundEventA.get("pairId")
+                )
+        );
+
+        assertEquals(
+                pair.getId(),
+                String.valueOf(
+                        foundEventB.get("pairId")
+                )
+        );
+
+        assertEquals(
+                "FOUND",
+                String.valueOf(
+                        foundEventA.get("status")
+                )
+        );
+
+        assertEquals(
+                "FOUND",
+                String.valueOf(
+                        foundEventB.get("status")
+                )
+        );
+        /*
+         * ---------------------------------------------------------
+         * 9. FOUND → CONFIRMED
          * ---------------------------------------------------------
          */
 
@@ -231,13 +373,18 @@ class TwinQuestWebSocketIntegrationTest {
         );
 
         waitForEvent(
-                sessionHandler,
+                handlerA,
+                "PAIR_CONFIRMED"
+        );
+
+        waitForEvent(
+                handlerB,
                 "PAIR_CONFIRMED"
         );
 
         /*
          * ---------------------------------------------------------
-         * 8. CONFIRMED → COMPLETED
+         * 10. CONFIRMED → COMPLETED
          * ---------------------------------------------------------
          */
 
@@ -247,72 +394,138 @@ class TwinQuestWebSocketIntegrationTest {
         );
 
         waitForEvent(
-                sessionHandler,
+                handlerA,
+                "PAIR_COMPLETED"
+        );
+
+        waitForEvent(
+                handlerB,
                 "PAIR_COMPLETED"
         );
 
         /*
          * ---------------------------------------------------------
-         * 9. VERIFY COMPLETE EVENT DATA
+         * 11. VERIFY COMPLETED EVENT DATA
          * ---------------------------------------------------------
          */
 
-        Map<?, ?> completedEvent =
-                sessionHandler.findEvent(
+        Map<?, ?> completedEventA =
+                handlerA.findEvent(
                         "PAIR_COMPLETED"
                 );
 
-        assertNotNull(completedEvent);
+        Map<?, ?> completedEventB =
+                handlerB.findEvent(
+                        "PAIR_COMPLETED"
+                );
+
+        assertNotNull(completedEventA);
+        assertNotNull(completedEventB);
+
+        /*
+         * Player A completion event
+         */
 
         assertEquals(
                 pair.getId(),
-                completedEvent.get("pairId")
+                completedEventA.get("pairId")
         );
 
         assertEquals(
                 playerA.getId(),
-                completedEvent.get("playerId")
+                completedEventA.get("playerId")
         );
 
         assertEquals(
                 playerB.getId(),
-                completedEvent.get("opponentId")
+                completedEventA.get("opponentId")
         );
 
         assertEquals(
                 "COMPLETED",
-                completedEvent.get("status")
+                completedEventA.get("status")
+        );
+
+        /*
+         * Player B completion event
+         */
+
+        assertEquals(
+                pair.getId(),
+                completedEventB.get("pairId")
+        );
+
+        assertEquals(
+                playerB.getId(),
+                completedEventB.get("playerId")
+        );
+
+        assertEquals(
+                playerA.getId(),
+                completedEventB.get("opponentId")
+        );
+
+        assertEquals(
+                "COMPLETED",
+                completedEventB.get("status")
         );
 
         /*
          * Jackson may deserialize Long as Integer
-         * depending on converter configuration, so compare
-         * numerically.
+         * depending on converter configuration,
+         * so compare numerically.
          */
+
         assertEquals(
                 12500L,
-                ((Number) completedEvent.get(
+                ((Number) completedEventA.get(
+                        "completionTimeMs"
+                )).longValue()
+        );
+
+        assertEquals(
+                12500L,
+                ((Number) completedEventB.get(
                         "completionTimeMs"
                 )).longValue()
         );
 
         /*
          * ---------------------------------------------------------
-         * 10. PRINT RESULTS
+         * 12. PRINT RESULTS
          * ---------------------------------------------------------
          */
 
         System.out.println();
         System.out.println(
-                "EVENTS RECEIVED: "
-                        + sessionHandler.events.size()
+                "PLAYER A EVENTS: "
+                        + handlerA.events.size()
         );
 
         for (Map<?, ?> event :
-                sessionHandler.events) {
+                handlerA.events) {
 
             System.out.println(
-                    "  → " + event.get("type")
+                    "PLAYER A → "
+                            + event.get("type")
+                            + " | "
+                            + event.get("status")
+            );
+        }
+
+        System.out.println();
+
+        System.out.println(
+                "PLAYER B EVENTS: "
+                        + handlerB.events.size()
+        );
+
+        for (Map<?, ?> event :
+                handlerB.events) {
+
+            System.out.println(
+                    "PLAYER B → "
+                            + event.get("type")
                             + " | "
                             + event.get("status")
             );
@@ -326,12 +539,63 @@ class TwinQuestWebSocketIntegrationTest {
                 "    WEBSOCKET FLOW PASSED"
         );
         System.out.println(
-                "=========================================="
-        );
+                "==========================================");
 
-        session.disconnect();
-        stompClient.stop();
+        /*
+         * ---------------------------------------------------------
+         * 13. DISCONNECT BOTH PLAYERS
+         * ---------------------------------------------------------
+         */
+
+        sessionA.disconnect();
+        sessionB.disconnect();
+
+        stompClientA.stop();
+        stompClientB.stop();
     }
+
+    /*
+     * -------------------------------------------------------------
+     * CREATE STOMP FRAME HANDLER
+     * -------------------------------------------------------------
+     */
+
+    private StompFrameHandler createFrameHandler(
+            TestStompHandler handler
+    ) {
+
+        return new StompFrameHandler() {
+
+            @Override
+            public Type getPayloadType(
+                    StompHeaders headers
+            ) {
+                return Map.class;
+            }
+
+            @Override
+            public void handleFrame(
+                    StompHeaders headers,
+                    Object payload
+            ) {
+
+                System.out.println(
+                        "WEBSOCKET EVENT RECEIVED: "
+                                + payload
+                );
+
+                handler.addEvent(
+                        (Map<?, ?>) payload
+                );
+            }
+        };
+    }
+
+    /*
+     * -------------------------------------------------------------
+     * WAIT FOR EVENT
+     * -------------------------------------------------------------
+     */
 
     private void waitForEvent(
             TestStompHandler handler,
@@ -360,6 +624,56 @@ class TwinQuestWebSocketIntegrationTest {
         );
     }
 
+    /*
+     * -------------------------------------------------------------
+     * WAIT FOR EVENT WITH SPECIFIC STATUS
+     * -------------------------------------------------------------
+     *
+     * Needed because PAIR_STATUS_CHANGED is used for
+     * both SEARCHING and FOUND.
+     */
+
+    private void waitForEventWithStatus(
+            TestStompHandler handler,
+            String eventType,
+            String status
+    ) throws Exception {
+
+        long timeout =
+                System.currentTimeMillis()
+                        + 5000;
+
+        while (
+                System.currentTimeMillis()
+                        < timeout
+        ) {
+
+            if (
+                    handler.hasEventWithStatus(
+                            eventType,
+                            status
+                    )
+            ) {
+                return;
+            }
+
+            Thread.sleep(100);
+        }
+
+        fail(
+                "Did not receive WebSocket event: "
+                        + eventType
+                        + " with status: "
+                        + status
+        );
+    }
+
+    /*
+     * -------------------------------------------------------------
+     * TEST STOMP HANDLER
+     * -------------------------------------------------------------
+     */
+
     private static class TestStompHandler
             extends StompSessionHandlerAdapter {
 
@@ -371,6 +685,7 @@ class TwinQuestWebSocketIntegrationTest {
                 StompSession session,
                 StompHeaders connectedHeaders
         ) {
+
             System.out.println(
                     "STOMP SESSION CONNECTED"
             );
@@ -379,12 +694,14 @@ class TwinQuestWebSocketIntegrationTest {
         public synchronized void addEvent(
                 Map<?, ?> event
         ) {
+
             events.add(event);
         }
 
         public synchronized boolean hasEvent(
                 String type
         ) {
+
             return events.stream()
                     .anyMatch(
                             event ->
@@ -394,15 +711,54 @@ class TwinQuestWebSocketIntegrationTest {
                     );
         }
 
+        public synchronized boolean hasEventWithStatus(
+                String type,
+                String status
+        ) {
+
+            return events.stream()
+                    .anyMatch(
+                            event ->
+                                    type.equals(
+                                            event.get("type")
+                                    )
+                                            &&
+                                            status.equals(
+                                                    event.get("status")
+                                            )
+                    );
+        }
+
         public synchronized Map<?, ?> findEvent(
                 String type
         ) {
+
             return events.stream()
                     .filter(
                             event ->
                                     type.equals(
                                             event.get("type")
                                     )
+                    )
+                    .findFirst()
+                    .orElse(null);
+        }
+
+        public synchronized Map<?, ?> findEventWithStatus(
+                String type,
+                String status
+        ) {
+
+            return events.stream()
+                    .filter(
+                            event ->
+                                    type.equals(
+                                            event.get("type")
+                                    )
+                                            &&
+                                            status.equals(
+                                                    event.get("status")
+                                            )
                     )
                     .findFirst()
                     .orElse(null);
