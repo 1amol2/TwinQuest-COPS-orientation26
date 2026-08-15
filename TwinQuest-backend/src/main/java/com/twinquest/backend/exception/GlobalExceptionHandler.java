@@ -72,10 +72,10 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleGeneralException(
             Exception exception
     ) {
-
+        exception.printStackTrace();
         ErrorResponse response = new ErrorResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                "An unexpected error occurred",
+                exception.getMessage() != null ? exception.getMessage() : exception.toString(),
                 Instant.now()
         );
 

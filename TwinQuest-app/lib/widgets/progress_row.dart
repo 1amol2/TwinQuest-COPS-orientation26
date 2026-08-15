@@ -15,33 +15,38 @@ class ProgressRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Row(
       children: [
         Icon(
           complete ? Icons.check_circle_rounded : Icons.circle_outlined,
-          size: 16,
-          color: complete ? AppColors.green : AppColors.muted,
+          size: 18,
+          color: complete ? AppColors.green : theme.textTheme.bodySmall?.color,
         ),
-        const SizedBox(width: 7),
+        const SizedBox(width: 10),
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(
-              fontSize: 11,
+            style: TextStyle(
+              fontSize: 12.5,
               fontWeight: FontWeight.w700,
-              color: AppColors.text,
+              color: theme.textTheme.bodyLarge?.color,
             ),
           ),
         ),
         Text(
           time,
-          style: const TextStyle(fontSize: 9.5, color: AppColors.muted),
+          style: TextStyle(
+            fontSize: 11,
+            color: theme.textTheme.bodySmall?.color,
+          ),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 6),
         Icon(
           Icons.check_circle_rounded,
-          size: 14,
-          color: complete ? AppColors.green : AppColors.muted,
+          size: 16,
+          color: complete ? AppColors.green : theme.textTheme.bodySmall?.color,
         ),
       ],
     );

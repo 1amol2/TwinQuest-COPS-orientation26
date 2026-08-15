@@ -5,54 +5,121 @@ class HalfCard extends StatelessWidget {
   final String number;
   final String imageAsset;
   final String label;
+  final bool isHidden;
 
   const HalfCard({
     super.key,
     required this.number,
     required this.imageAsset,
-    this.label = 'Your Half',
+    this.label = 'Your Piece',
+    this.isHidden = true,
   });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final cardBg = isDark ? AppColors.darkSurface : AppColors.surface;
+    final borderColor = isDark ? AppColors.darkBorderHighlight : AppColors.borderHighlight;
+    final primaryAccent = isDark ? AppColors.amber : AppColors.primary;
+
     return Container(
-      padding: const EdgeInsets.all(11),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: AppColors.border),
+        color: cardBg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderColor, width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: (isDark ? Colors.black : AppColors.primary).withValues(alpha: isDark ? 0.4 : 0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.asset(
-              imageAsset,
-              width: 58,
-              height: 58,
-              fit: BoxFit.cover,
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: isHidden ? (isDark ? AppColors.darkSurfaceSoft : const Color(0xFFF7F2EC)) : Colors.transparent,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isHidden ? primaryAccent.withValues(alpha: 0.3) : Colors.transparent,
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.12),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
+            child: isHidden
+                ? Center(
+                    child: Icon(
+                      Icons.lock_rounded,
+                      size: 28,
+                      color: primaryAccent,
+                    ),
+                  )
+                : ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Image.asset(
+                      imageAsset,
+                      width: 64,
+                      height: 64,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
           ),
-          const SizedBox(width: 11),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.text,
-                    )),
-                const SizedBox(height: 3),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        gradient: AppColors.primaryGradient,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        label.toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
                 Text(
-                  number,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.muted,
-                    fontWeight: FontWeight.w700,
+                  isHidden ? '🔒 Secret Puzzle Piece' : number,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: theme.textTheme.titleMedium?.color,
                   ),
                 ),
+                if (isHidden) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'Revealed when PIN match is verified!',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? AppColors.darkTextSoft : AppColors.textSoft,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

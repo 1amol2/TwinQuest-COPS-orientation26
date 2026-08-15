@@ -1,205 +1,252 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../core/app_colors.dart';
+import '../providers/game_provider.dart';
+import '../providers/theme_provider.dart';
+import '../widgets/app_header.dart';
+import '../widgets/bottom_nav.dart';
 
-class SettingsScreen extends StatefulWidget {
+class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
-}
-
-class _SettingsScreenState extends State<SettingsScreen> {
-  bool vibration = true;
-  bool sound = true;
-  bool dark = false;
-
-  @override
   Widget build(BuildContext context) {
+    final game = context.watch<GameProvider>();
+    final themeProvider = context.watch<ThemeProvider>();
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final cardBg = isDark ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = isDark ? AppColors.darkBorderHighlight : AppColors.border;
+    final primaryAccent = isDark ? AppColors.amber : AppColors.primary;
+
     return Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        title: const Text(
-          'Settings',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.2,
-          ),
-        ),
-        leading: IconButton(
-          onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-        ),
-      ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        bottom: false,
+        child: Column(
           children: [
-            const _Heading('General'),
-            Container(
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Column(
-                children: [
-                  _ToggleRow(
-                    title: 'Vibration',
-                    value: vibration,
-                    onChanged: (v) => setState(() => vibration = v),
-                  ),
-                  const Divider(height: 1, thickness: 1, color: AppColors.border),
-                  _ToggleRow(
-                    title: 'Sound Effects',
-                    value: sound,
-                    onChanged: (v) => setState(() => sound = v),
-                  ),
-                  const Divider(height: 1, thickness: 1, color: AppColors.border),
-                  _ToggleRow(
-                    title: 'Dark Mode',
-                    value: dark,
-                    onChanged: (v) => setState(() => dark = v),
-                  ),
-                ],
-              ),
+            AppHeader(
+              title: 'Settings',
+              onBack: () => Navigator.pop(context),
             ),
-            const SizedBox(height: 24),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Theme Preferences Section
+                    Text(
+                      'App Theme Preferences',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: theme.textTheme.titleLarge?.color,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Select Light, Dark, or System Default appearance.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: theme.textTheme.bodyMedium?.color,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
 
-            const _Heading('About'),
-            Container(
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Column(
-                children: const [
-                  _ArrowRow('About PairQuest'),
-                  Divider(height: 1, thickness: 1, color: AppColors.border),
-                  _ArrowRow('Privacy Policy'),
-                  Divider(height: 1, thickness: 1, color: AppColors.border),
-                  _ArrowRow('Terms & Conditions'),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: cardBg,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: cardBorder),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          _ThemeRadioTile(
+                            title: 'Light Theme ☀️',
+                            mode: ThemeMode.light,
+                            currentMode: themeProvider.themeMode,
+                            onChanged: (m) => themeProvider.setThemeMode(m),
+                          ),
+                          Divider(height: 1, thickness: 1, color: cardBorder),
+                          _ThemeRadioTile(
+                            title: 'Dark Mode 🌙',
+                            mode: ThemeMode.dark,
+                            currentMode: themeProvider.themeMode,
+                            onChanged: (m) => themeProvider.setThemeMode(m),
+                          ),
+                          Divider(height: 1, thickness: 1, color: cardBorder),
+                          _ThemeRadioTile(
+                            title: 'System Default 📱',
+                            mode: ThemeMode.system,
+                            currentMode: themeProvider.themeMode,
+                            onChanged: (m) => themeProvider.setThemeMode(m),
+                          ),
+                        ],
+                      ),
+                    ),
 
-            OutlinedButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.logout_rounded, size: 20, color: AppColors.red),
-              label: const Text(
-                'Log Out',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
+                    const SizedBox(height: 24),
+
+                    Text(
+                      'Bluetooth & Demo Mode',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: theme.textTheme.titleLarge?.color,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Toggle demo mode for testing signal strength on emulators without physical Bluetooth devices.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: theme.textTheme.bodyMedium?.color,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Simulation Switch Card
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: cardBg,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: cardBorder),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Simulated Proximity Mode',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: theme.textTheme.titleMedium?.color,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Enable RSSI distance slider for demo',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: theme.textTheme.bodyMedium?.color,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Switch(
+                            value: game.isSimulatedMode,
+                            activeTrackColor: primaryAccent,
+                            onChanged: (val) => game.setSimulatedMode(val),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // App Information Card
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: cardBg,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: cardBorder),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'TwinQuest Engine',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: theme.textTheme.titleMedium?.color,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'v1.0.0 — COPS Orientation 2026',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.textTheme.bodyMedium?.color,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                  ],
                 ),
               ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.red,
-                side: const BorderSide(color: AppColors.border),
-                minimumSize: const Size.fromHeight(52),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
             ),
-            const SizedBox(height: 16),
           ],
         ),
       ),
+      bottomNavigationBar: const PairQuestBottomNav(selectedIndex: 3),
     );
   }
 }
 
-class _Heading extends StatelessWidget {
-  final String text;
-  const _Heading(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 8),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w900,
-          color: AppColors.text,
-          letterSpacing: -0.2,
-        ),
-      ),
-    );
-  }
-}
-
-class _ToggleRow extends StatelessWidget {
+class _ThemeRadioTile extends StatelessWidget {
   final String title;
-  final bool value;
-  final ValueChanged<bool> onChanged;
+  final ThemeMode mode;
+  final ThemeMode currentMode;
+  final ValueChanged<ThemeMode> onChanged;
 
-  const _ToggleRow({
+  const _ThemeRadioTile({
     required this.title,
-    required this.value,
+    required this.mode,
+    required this.currentMode,
     required this.onChanged,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: AppColors.text,
-              ),
-            ),
-          ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: AppColors.green,
-            inactiveThumbColor: Colors.white,
-            inactiveTrackColor: AppColors.peach,
-          ),
-        ],
-      ),
-    );
-  }
-}
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final isSelected = mode == currentMode;
+    final activeColor = isDark ? AppColors.amber : AppColors.orange;
 
-class _ArrowRow extends StatelessWidget {
-  final String text;
-  const _ArrowRow(this.text);
-
-  @override
-  Widget build(BuildContext context) {
     return InkWell(
-      onTap: () {},
-      borderRadius: BorderRadius.circular(16),
+      onTap: () => onChanged(mode),
+      borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Expanded(
-              child: Text(
-                text,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.text,
-                ),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: isSelected ? activeColor : theme.textTheme.titleMedium?.color,
               ),
             ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              size: 22,
-              color: AppColors.muted,
+            Icon(
+              isSelected ? Icons.check_circle_rounded : Icons.circle_outlined,
+              color: isSelected ? activeColor : theme.textTheme.bodySmall?.color,
+              size: 20,
             ),
           ],
         ),

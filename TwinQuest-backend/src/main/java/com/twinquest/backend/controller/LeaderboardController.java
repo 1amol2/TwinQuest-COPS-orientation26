@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/leaderboard")
+@RequestMapping("/api/legacy/leaderboard")
 @RequiredArgsConstructor
 public class LeaderboardController {
 

@@ -7,70 +7,106 @@ class NearbyPairsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final cardBg = isDark ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = isDark ? AppColors.darkBorderHighlight : AppColors.border;
+    final primaryAccent = isDark ? AppColors.amber : AppColors.primary;
+
     final pairs = [
-      ('#41', '2.1 m', 'A'),
-      ('#73', '3.8 m', 'P'),
-      ('#18', '5.6 m', 'N'),
-      ('#92', '6.9 m', 'R'),
-      ('#64', '8.3 m', 'S'),
+      ('Pair #1 (Aarav & Ananya)', '2.1 m away', 'A'),
+      ('Pair #2 (Rohan & Priya)', '3.8 m away', 'P'),
+      ('Pair #3 (Kabir & Diya)', '5.6 m away', 'N'),
     ];
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Nearby Pairs', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+        title: const Text('Nearby Pairs In Hall 📡', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: theme.iconTheme.color),
         ),
         actions: [
-          IconButton(onPressed: () {}, icon: const Icon(Icons.refresh_rounded, size: 19)),
+          IconButton(
+            onPressed: () {},
+            icon: Icon(Icons.refresh_rounded, size: 19, color: theme.iconTheme.color),
+          ),
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 2, 16, 16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         children: [
           ...pairs.map(
             (p) => Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
-              margin: const EdgeInsets.only(bottom: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              margin: const EdgeInsets.only(bottom: 10),
               decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.border),
+                color: cardBg,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: cardBorder),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
               child: Row(
                 children: [
-                  Avatar(letter: p.$3, size: 30),
-                  const SizedBox(width: 10),
+                  Avatar(letter: p.$3, size: 36),
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: Text(p.$1, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+                    child: Text(
+                      p.$1,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: theme.textTheme.titleMedium?.color,
+                      ),
+                    ),
                   ),
-                  Text(p.$2, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800)),
+                  Text(
+                    p.$2,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: primaryAccent,
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 12),
           Container(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: AppColors.surfaceSoft,
-              borderRadius: BorderRadius.circular(13),
-              border: Border.all(color: AppColors.border),
+              color: cardBg,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: cardBorder),
             ),
-            child: const Column(
+            child: Column(
               children: [
-                Icon(Icons.location_on_outlined, color: AppColors.primary, size: 23),
-                SizedBox(height: 5),
+                Icon(Icons.location_on_outlined, color: primaryAccent, size: 28),
+                const SizedBox(height: 8),
                 Text(
-                  'Move around to find your partner',
-                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800),
+                  'Move around the hall to detect your partner',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: theme.textTheme.titleMedium?.color,
+                  ),
                   textAlign: TextAlign.center,
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Text(
-                  'Stronger signal means you’re closer!',
-                  style: TextStyle(fontSize: 9.5, color: AppColors.textSoft),
+                  'Stronger signal means you are getting closer!',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: theme.textTheme.bodyMedium?.color,
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ],

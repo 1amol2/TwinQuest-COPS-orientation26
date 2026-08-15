@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../core/app_colors.dart';
 
 class AppHeader extends StatelessWidget {
   final String title;
@@ -17,6 +16,8 @@ class AppHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
       child: Row(
@@ -28,7 +29,7 @@ class AppHeader extends StatelessWidget {
                 : IconButton(
                     onPressed: onBack,
                     icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-                    color: AppColors.text,
+                    color: theme.iconTheme.color,
                     padding: EdgeInsets.zero,
                   ),
           ),
@@ -38,17 +39,21 @@ class AppHeader extends StatelessWidget {
                 Text(
                   title,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w800,
-                    color: AppColors.text,
+                    color: theme.textTheme.titleLarge?.color,
+                    letterSpacing: -0.2,
                   ),
                 ),
                 if (subtitle != null) ...[
                   const SizedBox(height: 2),
                   Text(
                     subtitle!,
-                    style: const TextStyle(fontSize: 11, color: AppColors.muted),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.textTheme.bodyMedium?.color,
+                    ),
                   ),
                 ],
               ],

@@ -8,7 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/matches")
+@RequestMapping("/api/legacy/matches")
 @RequiredArgsConstructor
 public class MatchController {
 

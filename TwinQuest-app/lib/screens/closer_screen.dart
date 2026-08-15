@@ -1,28 +1,63 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../core/app_colors.dart';
 import '../core/routes.dart';
+import '../providers/game_provider.dart';
+import '../services/ble_service.dart';
 import '../widgets/app_header.dart';
 import '../widgets/bottom_nav.dart';
 import '../widgets/half_card.dart';
 import '../widgets/signal_rings.dart';
+import '../widgets/radar_scanner.dart';
+import '../widgets/app_button.dart';
 
 class CloserScreen extends StatelessWidget {
   const CloserScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final game = context.watch<GameProvider>();
+    final level = game.proximityLevel;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final cardBg = isDark ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = isDark ? AppColors.darkBorderHighlight : AppColors.border;
+
+    Color ringColor;
+    String statusTitle;
+    String statusSubtitle;
+    String signalBars;
+
+    switch (level) {
+      case ProximityLevel.far:
+        ringColor = AppColors.blue;
+        statusTitle = '🔵 Mystery partner far away';
+        statusSubtitle = 'Scan around the orientation hall to pick up signal!';
+        signalBars = '●○○○○';
+        break;
+      case ProximityLevel.close:
+        ringColor = AppColors.orange;
+        statusTitle = '🔴 Getting warmer!';
+        statusSubtitle = 'You are very close! Walk towards the signal...';
+        signalBars = '●●●●○';
+        break;
+      case ProximityLevel.touch:
+        ringColor = AppColors.green;
+        statusTitle = '🟢 Touch Zone Reached!';
+        statusSubtitle = 'Hold both phones together to confirm match!';
+        signalBars = '●●●●●';
+        break;
+    }
+
     return Scaffold(
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
             AppHeader(
-              title: 'Getting closer!',
+              title: 'Bluetooth Search 🔍',
               onBack: () => Navigator.pop(context),
-              trailing: IconButton(
-                onPressed: () {},
-                icon: const Icon(Icons.help_outline_rounded, size: 22),
-              ),
             ),
             Expanded(
               child: SingleChildScrollView(
@@ -31,32 +66,80 @@ class CloserScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SizedBox(height: 8),
-
-                    // Signal Rings Visual
-                    const Center(
-                      child: SignalRings(accent: AppColors.orange),
+                    // Timer & Secret Badge Header
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: (isDark ? AppColors.amber : AppColors.primary).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: (isDark ? AppColors.amber : AppColors.primary).withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.lock_clock_rounded,
+                                size: 18,
+                                color: isDark ? AppColors.amber : AppColors.primary,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Partner: ??? (Secret)',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  color: isDark ? AppColors.amber : AppColors.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            game.formattedTime,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 16,
+                              color: isDark ? AppColors.amber : AppColors.primary,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
+
+                    // Signal Rings & Radar Visual
+                    Center(
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          RadarScanner(accentColor: ringColor, size: 210),
+                          SignalRings(accent: ringColor),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
 
                     // Signal Status Text
-                    const Text(
-                      'Very close',
+                    Text(
+                      statusTitle,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 18,
                         fontWeight: FontWeight.w800,
-                        color: AppColors.text,
+                        color: ringColor,
                         letterSpacing: -0.2,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      "You're almost there!",
+                    Text(
+                      statusSubtitle,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 13,
-                        color: AppColors.textSoft,
+                        color: theme.textTheme.bodyMedium?.color,
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -65,73 +148,71 @@ class CloserScreen extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.border),
+                        color: cardBg,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: cardBorder),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      child: const Column(
+                      child: Column(
                         children: [
                           _MetricRow(
-                            label: 'Signal Strength',
-                            value: '●●●●○',
-                            valueColor: AppColors.orange,
+                            label: 'Signal Strength (RSSI)',
+                            value: '$signalBars (${game.rssi} dBm)',
+                            valueColor: ringColor,
                           ),
                           Padding(
-                            padding: EdgeInsets.symmetric(vertical: 10),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
                             child: Divider(
                               height: 1,
                               thickness: 1,
-                              color: AppColors.border,
+                              color: cardBorder,
                             ),
                           ),
                           _MetricRow(
-                            label: 'Distance',
-                            value: '2.4 m',
+                            label: 'Estimated Distance',
+                            value: '${game.estimatedDistance.toStringAsFixed(1)} meters',
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 16),
 
+
+
                     // Card Component
-                    const HalfCard(
-                      number: '#37 / 200',
-                      imageAsset: 'assets/images/puzzle_landscape.png',
+                    HalfCard(
+                      number: 'Your Piece (${game.imageHalf} Half)',
+                      imageAsset: game.imageAsset,
                     ),
-                    const SizedBox(height: 24),
+
+                    const SizedBox(height: 20),
+
+                    // Primary Action Button
+                    AppButton(
+                      label: level == ProximityLevel.touch
+                          ? 'TOUCH PHONES NOW 🟢'
+                          : 'VERIFY PARTNER & MATCH 🤝',
+                      gradient: isDark ? AppColors.goldGradient : AppColors.primaryGradient,
+                      onPressed: () {
+                        Navigator.pushNamed(context, AppRoutes.touch);
+                      },
+                    ),
+
+                    const SizedBox(height: 28),
                   ],
                 ),
               ),
             ),
-
-            // Fixed Bottom Action Area
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-              child: ElevatedButton(
-                onPressed: () => Navigator.pushNamed(context, AppRoutes.touch),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size.fromHeight(52),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                child: const Text(
-                  'Continue',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-
-            const PairQuestBottomNav(selectedIndex: 0),
           ],
         ),
       ),
+      bottomNavigationBar: const PairQuestBottomNav(selectedIndex: 0),
     );
   }
 }
@@ -149,24 +230,25 @@ class _MetricRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
+            color: theme.textTheme.bodyMedium?.color,
             fontWeight: FontWeight.w500,
-            color: AppColors.textSoft,
           ),
         ),
         Text(
           value,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: FontWeight.w800,
-            color: valueColor ?? AppColors.text,
-            letterSpacing: 0.2,
+            color: valueColor ?? theme.textTheme.titleMedium?.color,
           ),
         ),
       ],

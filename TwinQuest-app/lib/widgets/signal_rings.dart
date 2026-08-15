@@ -15,19 +15,7 @@ class SignalRings extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rings = success
-        ? [
-            const Color(0xFFF0F2E8),
-            const Color(0xFFE2E9D2),
-            const Color(0xFFC9D8A8),
-            const Color(0xFF9FBF70),
-          ]
-        : [
-            const Color(0xFFF8EDE2),
-            const Color(0xFFF4DFCD),
-            const Color(0xFFECC6AA),
-            accent,
-          ];
+    final currentColor = success ? AppColors.green : accent;
 
     return SizedBox(
       width: 210,
@@ -35,34 +23,46 @@ class SignalRings extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          for (var i = 0; i < rings.length; i++)
+          // Concentric Outer Soft Glow Rings
+          for (int i = 0; i < 4; i++)
             Container(
-              width: 205 - i * 39,
-              height: 205 - i * 39,
+              width: 200 - i * 36,
+              height: 200 - i * 36,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: rings[i],
-                border: Border.all(color: Colors.white.withOpacity(.45)),
+                color: currentColor.withValues(alpha: 0.08 + (i * 0.05)),
+                border: Border.all(
+                  color: currentColor.withValues(alpha: 0.3 - (i * 0.05)),
+                  width: 1.5,
+                ),
               ),
             ),
+          // Center Pulsing Beacon Core
           Container(
-            width: 70,
-            height: 70,
+            width: 72,
+            height: 72,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: success ? AppColors.green : accent,
+              gradient: LinearGradient(
+                colors: [
+                  currentColor,
+                  currentColor.withValues(alpha: 0.8),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: accent.withOpacity(.14),
-                  blurRadius: 18,
-                  spreadRadius: 4,
+                  color: currentColor.withValues(alpha: 0.45),
+                  blurRadius: 24,
+                  spreadRadius: 6,
                 ),
               ],
             ),
             child: Icon(
               success ? Icons.check_rounded : icon,
               color: Colors.white,
-              size: 36,
+              size: 34,
             ),
           ),
         ],

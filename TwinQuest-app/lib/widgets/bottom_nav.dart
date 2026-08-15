@@ -19,6 +19,9 @@ class PairQuestBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     const items = [
       (Icons.home_rounded, 'Home'),
       (Icons.bar_chart_rounded, 'Leaderboard'),
@@ -26,13 +29,18 @@ class PairQuestBottomNav extends StatelessWidget {
       (Icons.person_rounded, 'Profile'),
     ];
 
+    final navBg = isDark ? AppColors.darkSurface : AppColors.background;
+    final navBorder = isDark ? AppColors.darkBorder : AppColors.border;
+    final activeColor = isDark ? AppColors.amber : AppColors.primary;
+    final inactiveColor = isDark ? AppColors.darkMuted : AppColors.muted;
+
     return SafeArea(
       top: false,
       child: Container(
-        height: 62,
-        decoration: const BoxDecoration(
-          color: AppColors.background,
-          border: Border(top: BorderSide(color: AppColors.border)),
+        height: 64,
+        decoration: BoxDecoration(
+          color: navBg,
+          border: Border(top: BorderSide(color: navBorder)),
         ),
         child: Row(
           children: List.generate(items.length, (i) {
@@ -45,16 +53,16 @@ class PairQuestBottomNav extends StatelessWidget {
                   children: [
                     Icon(
                       items[i].$1,
-                      size: 20,
-                      color: active ? AppColors.primary : AppColors.muted,
+                      size: 22,
+                      color: active ? activeColor : inactiveColor,
                     ),
                     const SizedBox(height: 3),
                     Text(
                       items[i].$2,
                       style: TextStyle(
-                        fontSize: 9.5,
+                        fontSize: 10,
                         fontWeight: active ? FontWeight.w800 : FontWeight.w600,
-                        color: active ? AppColors.primary : AppColors.muted,
+                        color: active ? activeColor : inactiveColor,
                       ),
                     ),
                   ],

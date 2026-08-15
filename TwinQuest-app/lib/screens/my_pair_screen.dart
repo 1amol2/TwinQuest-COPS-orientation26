@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../core/app_colors.dart';
+import '../providers/game_provider.dart';
 import '../widgets/avatar.dart';
 import '../widgets/bottom_nav.dart';
 import '../widgets/progress_row.dart';
@@ -10,11 +12,19 @@ class MyPairScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final game = context.watch<GameProvider>();
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final cardBg = isDark ? AppColors.darkSurface : AppColors.surface;
+    final cardBorder = isDark ? AppColors.darkBorderHighlight : AppColors.border;
+    final primaryAccent = isDark ? AppColors.amber : AppColors.primary;
+
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
         title: const Text(
-          'My Pair',
+          'Active Pair',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w800,
@@ -39,69 +49,74 @@ class MyPairScreen extends StatelessWidget {
                       const SizedBox(height: 4),
 
                       // Avatars Row
-                      const Row(
+                      Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Avatar(letter: 'A', size: 76),
-                          SizedBox(width: 12),
-                          Avatar(letter: 'P', size: 76, color: Color(0xFFF0CDB5)),
+                          Avatar(
+                            letter: game.playerName.isNotEmpty ? game.playerName[0].toUpperCase() : 'V',
+                            size: 76,
+                          ),
+                          const SizedBox(width: 12),
+                          Avatar(
+                            letter: game.partnerName.isNotEmpty ? game.partnerName[0].toUpperCase() : '?',
+                            size: 76,
+                          ),
                         ],
                       ),
                       const SizedBox(height: 10),
 
                       // Heart Indicator
                       const Text(
-                        '♥',
+                        '',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 22,
-                          color: AppColors.red,
+                          fontSize: 3,
                           height: 1.0,
                         ),
                       ),
                       const SizedBox(height: 6),
 
                       // Pair Title & Badge Number
-                      const Text(
-                        'You & Priya',
+                      Text(
+                        '${game.playerName} & ${game.partnerName}',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w900,
-                          color: AppColors.text,
+                          color: theme.textTheme.headlineMedium?.color,
                           letterSpacing: -0.3,
                         ),
                       ),
                       const SizedBox(height: 4),
-                      const Text(
-                        'Pair #37',
+                      Text(
+                        'Assigned Pair Code: ${game.pairId}',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.textSoft,
+                          color: theme.textTheme.bodyMedium?.color,
                         ),
                       ),
                       const SizedBox(height: 16),
 
                       // Match Time Metric Block
-                      const Text(
-                        'Matched in',
+                      Text(
+                        'Match Completion Speed',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.textSoft,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: theme.textTheme.bodyMedium?.color,
                         ),
                       ),
                       const SizedBox(height: 2),
-                      const Text(
-                        '00:28.16',
+                      Text(
+                        game.formattedTime.isNotEmpty ? game.formattedTime : '00:28.16',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 26,
+                          fontSize: 28,
                           fontWeight: FontWeight.w900,
-                          color: AppColors.primary,
+                          color: primaryAccent,
                           letterSpacing: 0.3,
                         ),
                       ),
@@ -109,32 +124,39 @@ class MyPairScreen extends StatelessWidget {
 
                       // Progress Card
                       Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(18),
                         decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppColors.border),
+                          color: cardBg,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: cardBorder),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
-                        child: const Column(
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Your Progress',
+                              'Match Journey Timeline',
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w800,
-                                color: AppColors.text,
+                                color: theme.textTheme.titleMedium?.color,
                                 letterSpacing: -0.2,
                               ),
                             ),
-                            SizedBox(height: 14),
-                            ProgressRow(label: 'Paired', time: '12:45 PM'),
-                            SizedBox(height: 12),
-                            ProgressRow(label: 'Getting closer', time: '12:46 PM'),
-                            SizedBox(height: 12),
-                            ProgressRow(label: 'Touch to match', time: '12:46 PM'),
-                            SizedBox(height: 12),
-                            ProgressRow(label: 'Matched', time: '12:46 PM'),
+                            const SizedBox(height: 14),
+                            const ProgressRow(label: 'Pair Assigned by Backend', time: '12:45 PM'),
+                            const SizedBox(height: 12),
+                            const ProgressRow(label: 'Bluetooth Search Initiated', time: '12:46 PM'),
+                            const SizedBox(height: 12),
+                            const ProgressRow(label: 'Green Touch Zone Reached', time: '12:46 PM'),
+                            const SizedBox(height: 12),
+                            const ProgressRow(label: 'Phones Touched & Matched!', time: '12:46 PM'),
                           ],
                         ),
                       ),
@@ -144,7 +166,8 @@ class MyPairScreen extends StatelessWidget {
 
                       // Action Button
                       AppButton(
-                        label: 'Send a Hi! 👋',
+                        label: 'SAY HI TO PARTNER 👋',
+                        gradient: isDark ? AppColors.goldGradient : AppColors.primaryGradient,
                         onPressed: () {},
                       ),
                       const SizedBox(height: 8),
