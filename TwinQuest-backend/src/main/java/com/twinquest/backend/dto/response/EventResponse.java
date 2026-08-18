@@ -20,7 +20,8 @@ public class EventResponse {
     private String eventCode;
 
     private String name;
-
+    private String code;
+    private String title;
     private EventStatus status;
 
     private Instant createdAt;
@@ -31,6 +32,10 @@ public class EventResponse {
                 .id(event.getId())
                 .eventCode(event.getEventCode())
                 .name(event.getName())
+
+                .code(event.getEventCode())
+                .title(event.getName())
+
                 .status(event.getStatus())
                 .createdAt(event.getCreatedAt())
                 .build();

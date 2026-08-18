@@ -16,10 +16,14 @@ import java.time.Instant;
 public class PlayerResponse {
 
     private String id;
+    private String playerId;
 
     private String name;
 
     private String eventId;
+    private String eventCode;
+
+    private String avatar;
 
     private PlayerStatus status;
 
@@ -29,8 +33,10 @@ public class PlayerResponse {
 
         return PlayerResponse.builder()
                 .id(player.getId())
+                .playerId(player.getId())
                 .name(player.getName())
                 .eventId(player.getEventId())
+                .avatar(player.getAvatar())
                 .status(player.getStatus())
                 .joinedAt(player.getJoinedAt())
                 .build();

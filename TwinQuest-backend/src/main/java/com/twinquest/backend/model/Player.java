@@ -23,6 +23,8 @@ public class Player {
 
     private String eventId;
 
+    private String avatar;
+
     private String deviceId;
 
     private PlayerStatus status;

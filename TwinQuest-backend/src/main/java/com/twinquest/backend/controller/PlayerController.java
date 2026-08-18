@@ -10,7 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/legacy/players")
+@RequestMapping("/api/players")
 @RequiredArgsConstructor
 public class PlayerController {
 
@@ -23,8 +23,8 @@ public class PlayerController {
 
         Player player = playerService.createPlayer(
                 request.getName(),
-                request.getEventId(),
-                request.getDeviceId()
+                request.getEventCode(),
+                request.getAvatar()
         );
 
         return ResponseEntity.ok(

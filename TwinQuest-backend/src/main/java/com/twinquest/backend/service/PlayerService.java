@@ -24,23 +24,22 @@ public class PlayerService {
     private final PlayerRepository playerRepository;
     private final MongoTemplate mongoTemplate;
 
+
     public Player createPlayer(
             String name,
             String eventId,
-            String deviceId
+            String avatar
     ) {
-
         Player player = Player.builder()
                 .name(name)
                 .eventId(eventId)
-                .deviceId(deviceId)
+                .avatar(avatar)
                 .status(PlayerStatus.WAITING)
                 .joinedAt(Instant.now())
                 .build();
 
         return playerRepository.save(player);
     }
-
     public Player getPlayerById(String playerId) {
 
         return playerRepository.findById(playerId)

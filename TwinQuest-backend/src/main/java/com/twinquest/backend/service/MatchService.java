@@ -1,17 +1,20 @@
 package com.twinquest.backend.service;
 
+import com.twinquest.backend.dto.request.CompleteGameMatchRequest;
+import com.twinquest.backend.dto.response.MatchCompletionResponse;
+import com.twinquest.backend.dto.response.MatchResponse;
 import com.twinquest.backend.exception.BadRequestException;
 import com.twinquest.backend.exception.ResourceNotFoundException;
-import com.twinquest.backend.model.Pair;
-import com.twinquest.backend.model.PairStatus;
-import com.twinquest.backend.model.Player;
-import com.twinquest.backend.model.PlayerStatus;
+import com.twinquest.backend.model.*;
+import com.twinquest.backend.repository.GameImageRepository;
+import com.twinquest.backend.repository.MatchResultRepository;
 import com.twinquest.backend.repository.PairRepository;
 import com.twinquest.backend.websocket.WebSocketEvent;
 import com.twinquest.backend.websocket.WebSocketService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -23,7 +26,9 @@ public class MatchService {
     private final PairRepository pairRepository;
     private final PlayerService playerService;
     private final WebSocketService webSocketService;
-
+    private final ImageService imageService;
+    private final GameImageRepository gameImageRepository;
+    private final MatchResultRepository matchResultRepository;
     public Pair createPair(
             String eventId,
             String playerAId,
@@ -34,11 +39,37 @@ public class MatchService {
                 .eventId(eventId)
                 .playerAId(playerAId)
                 .playerBId(playerBId)
+                .playerAPin(generatePin())
+                .playerBPin(generatePin())
+                .playerAVerified(false)
+                .playerBVerified(false)
                 .status(PairStatus.CREATED)
                 .createdAt(Instant.now())
                 .build();
+        Pair savedPair =
+                pairRepository.save(pair);
 
-        Pair savedPair = pairRepository.save(pair);
+        GameImage gameImage =
+                imageService.generatePuzzleImage(
+                        savedPair.getId()
+                );
+
+        savedPair.setGameImageId(
+                gameImage.getId()
+        );
+
+        savedPair.setMatchedAt(
+                Instant.now()
+        );
+
+        savedPair.setGameStartedAt(
+                Instant.now()
+        );
+        savedPair.setStatus(
+                PairStatus.CREATED
+        );
+        savedPair =
+                pairRepository.save(savedPair);
 
         updatePlayerStatus(playerAId, PlayerStatus.PAIRED);
         updatePlayerStatus(playerBId, PlayerStatus.PAIRED);
@@ -288,5 +319,289 @@ public class MatchService {
                             + next
             );
         }
+    }
+    public int startMatchmaking(String eventId) {
+
+        int pairsCreated = 0;
+
+        while (true) {
+
+            Pair pair = findAndCreateMatch(eventId);
+
+            if (pair == null) {
+                break;
+            }
+
+            pairsCreated++;
+        }
+
+        return pairsCreated;
+    }
+    private String generatePin() {
+
+        SecureRandom random =
+                new SecureRandom();
+
+        return String.format(
+                "%04d",
+                random.nextInt(10000)
+        );
+    }
+    public MatchResponse getMatchForPlayer(
+            String playerId
+    ) {
+
+        Pair pair =
+                pairRepository
+                        .findByPlayerAIdOrPlayerBId(
+                                playerId,
+                                playerId
+                        )
+                        .orElse(null);
+
+        if (pair == null) {
+            throw new ResourceNotFoundException(
+                    "Match not found for player: " + playerId
+            );
+        }
+
+        boolean isPlayerA =
+                playerId.equals(
+                        pair.getPlayerAId()
+                );
+
+        String partnerId =
+                isPlayerA
+                        ? pair.getPlayerBId()
+                        : pair.getPlayerAId();
+
+        Player partner =
+                playerService.getPlayerById(
+                        partnerId
+                );
+
+        return MatchResponse.builder()
+                .id(pair.getId())
+
+                .role(
+                        isPlayerA
+                                ? "LEFT"
+                                : "RIGHT"
+                )
+
+                .partnerName(
+                        partner.getName()
+                )
+
+                .partnerAvatar(
+                        partner.getAvatar()
+                )
+
+                // IMPORTANT:
+                // This is the player's own PIN.
+                // They show this to their partner.
+                .pin(
+                        isPlayerA
+                                ? pair.getPlayerAPin()
+                                : pair.getPlayerBPin()
+                )
+
+                .status(
+                        pair.getStatus().name()
+                )
+
+                .build();
+    }
+    public MatchCompletionResponse completeGameMatch(
+            CompleteGameMatchRequest request
+    ) {
+
+        Pair pair =
+                pairRepository
+                        .findById(request.getPairId())
+                        .orElse(null);
+
+        if (pair == null) {
+            return MatchCompletionResponse.failure(
+                    "Pair not found"
+            );
+        }
+
+        boolean isPlayerA =
+                request.getPlayerId()
+                        .equals(pair.getPlayerAId());
+
+        boolean isPlayerB =
+                request.getPlayerId()
+                        .equals(pair.getPlayerBId());
+
+        /*
+         * The player submitting the PIN must actually
+         * belong to this pair.
+         */
+        if (!isPlayerA && !isPlayerB) {
+            return MatchCompletionResponse.failure(
+                    "Player does not belong to this pair"
+            );
+        }
+
+        /*
+         * PIN verification is allowed only after
+         * the pair has been found.
+         */
+        if (pair.getStatus() != PairStatus.FOUND &&
+                pair.getStatus() != PairStatus.CONFIRMED) {
+
+            return MatchCompletionResponse.failure(
+                    "Pair is not ready for completion"
+            );
+        }
+
+        /*
+         * Each player must enter the OTHER player's PIN.
+         *
+         * Player A -> must enter Player B's PIN
+         * Player B -> must enter Player A's PIN
+         */
+        String expectedPin =
+                isPlayerA
+                        ? pair.getPlayerBPin()
+                        : pair.getPlayerAPin();
+
+        if (!expectedPin.equals(request.getPin())) {
+
+            return MatchCompletionResponse.failure(
+                    "Invalid partner PIN"
+            );
+        }
+
+        /*
+         * Mark the player who just entered the correct
+         * partner PIN as verified.
+         */
+        if (isPlayerA) {
+            pair.setPlayerAVerified(true);
+        } else {
+            pair.setPlayerBVerified(true);
+        }
+
+        Pair savedPair =
+                pairRepository.save(pair);
+
+        /*
+         * Only one player has verified so far.
+         *
+         * The match must NOT end yet.
+         */
+        if (!savedPair.isPlayerAVerified()
+                || !savedPair.isPlayerBVerified()) {
+
+            return MatchCompletionResponse.builder()
+                    .status("VERIFIED")
+                    .pairId(savedPair.getId())
+                    .build();
+        }
+
+        /*
+         * BOTH players have now entered the correct
+         * partner PIN.
+         *
+         * The match can finally be completed.
+         */
+        savedPair.setCompletionTimeMs(
+                request.getDurationMs()
+        );
+
+        savedPair.setStatus(
+                PairStatus.COMPLETED
+        );
+
+        savedPair =
+                pairRepository.save(savedPair);
+
+        /*
+         * Save the completed match result.
+         */
+        saveMatchResult(
+                savedPair,
+                request
+        );
+
+        /*
+         * Get the generated puzzle image.
+         */
+        GameImage image =
+                gameImageRepository
+                        .findById(
+                                savedPair.getGameImageId()
+                        )
+                        .orElse(null);
+
+        /*
+         * Notify both players that the match
+         * has actually completed.
+         */
+        notifyPlayers(
+                savedPair,
+                "PAIR_COMPLETED"
+        );
+
+        /*
+         * If the image doesn't exist, the match is still
+         * successfully completed.
+         */
+        if (image == null) {
+
+            return MatchCompletionResponse.builder()
+                    .status("COMPLETED")
+                    .pairId(savedPair.getId())
+                    .durationMs(
+                            savedPair.getCompletionTimeMs()
+                    )
+                    .build();
+        }
+
+        return MatchCompletionResponse.builder()
+                .status("COMPLETED")
+                .pairId(savedPair.getId())
+                .durationMs(
+                        savedPair.getCompletionTimeMs()
+                )
+                .leftHalfImage(
+                        image.getLeftHalfUrl()
+                )
+                .rightHalfImage(
+                        image.getRightHalfUrl()
+                )
+                .build();
+    }
+    private void saveMatchResult(
+            Pair pair,
+            CompleteGameMatchRequest request
+    ) {
+
+        if (request.getUserEmail() == null ||
+                request.getUserEmail().isBlank() ||
+                request.getUserEmail()
+                        .equalsIgnoreCase(
+                                "guest@pairquest.app"
+                        )) {
+
+            return;
+        }
+
+        MatchResult result =
+                MatchResult.builder()
+                        .eventId(pair.getEventId())
+                        .pairId(pair.getId())
+                        .playerId(request.getPlayerId())
+                        .userEmail(request.getUserEmail())
+                        .completionTimeMs(
+                                request.getDurationMs()
+                        )
+                        .completedAt(Instant.now())
+                        .build();
+
+        matchResultRepository.save(result);
     }
 }

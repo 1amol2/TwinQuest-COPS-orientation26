@@ -23,6 +23,10 @@ public class MatchResult {
 
     private String pairId;
 
+    private String playerId;
+
+    private String userEmail;
+
     private Long completionTimeMs;
 
     private Instant completedAt;

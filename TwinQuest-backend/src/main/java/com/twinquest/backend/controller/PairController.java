@@ -1,6 +1,7 @@
 package com.twinquest.backend.controller;
 
 import com.twinquest.backend.dto.request.CompleteMatchRequest;
+import com.twinquest.backend.dto.request.CreatePairRequest;
 import com.twinquest.backend.dto.request.UpdatePairStatusRequest;
 import com.twinquest.backend.dto.response.PairResponse;
 import com.twinquest.backend.model.Pair;
@@ -13,12 +14,27 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/legacy/pairs")
+@RequestMapping("/api/pairs")
 @RequiredArgsConstructor
 public class PairController {
 
     private final MatchService matchService;
 
+    @PostMapping("/create")
+    public ResponseEntity<PairResponse> createPair(
+            @Valid @RequestBody CreatePairRequest request
+    ) {
+
+        Pair pair = matchService.createPair(
+                request.getEventId(),
+                request.getPlayerAId(),
+                request.getPlayerBId()
+        );
+
+        return ResponseEntity.ok(
+                PairResponse.from(pair)
+        );
+    }
 
     @GetMapping("/{pairId}")
     public ResponseEntity<PairResponse> getPair(

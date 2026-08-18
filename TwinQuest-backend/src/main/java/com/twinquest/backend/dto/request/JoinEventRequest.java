@@ -4,7 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 @Data
-public class JoinPlayerRequest {
+public class JoinEventRequest {
 
     @NotBlank(message = "Player name is required")
     private String name;

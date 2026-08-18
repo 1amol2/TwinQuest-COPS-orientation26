@@ -1,9 +1,12 @@
 package com.twinquest.backend.service;
 
 import com.twinquest.backend.dto.response.LeaderboardEntryResponse;
+import com.twinquest.backend.exception.ResourceNotFoundException;
+import com.twinquest.backend.model.Event;
 import com.twinquest.backend.model.Pair;
 import com.twinquest.backend.model.PairStatus;
 import com.twinquest.backend.model.Player;
+import com.twinquest.backend.repository.EventRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -16,7 +19,7 @@ public class LeaderboardService {
 
     private final MatchService matchService;
     private final PlayerService playerService;
-
+    private final EventRepository eventRepository;
     public List<LeaderboardEntryResponse> getLeaderboard(String eventId) {
 
         System.out.println("========== LEADERBOARD DEBUG ==========");
@@ -86,5 +89,21 @@ public class LeaderboardService {
 
                 })
                 .toList();
+    }
+    public List<LeaderboardEntryResponse>
+    getLeaderboardByEventCode(
+            String eventCode
+    ) {
+
+        Event event =
+                eventRepository
+                        .findByEventCode(eventCode)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Event not found: " + eventCode
+                                )
+                        );
+
+        return getLeaderboard(event.getId());
     }
 }

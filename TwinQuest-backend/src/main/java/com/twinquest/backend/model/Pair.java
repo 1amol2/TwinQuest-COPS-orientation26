@@ -25,11 +25,23 @@ public class Pair {
 
     private String playerBId;
 
+    private String playerAPin;
+
+    private String playerBPin;
+
+    private boolean playerAVerified;
+
+    private boolean playerBVerified;
+
+    private String gameImageId;
+
     private PairStatus status;
 
     private Instant createdAt;
 
     private Instant matchedAt;
+
+    private Instant gameStartedAt;
 
     private Long completionTimeMs;
 }

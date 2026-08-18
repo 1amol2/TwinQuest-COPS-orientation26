@@ -24,4 +24,10 @@ public class WebSocketEvent {
     private String status;
 
     private Long completionTimeMs;
+
+    private String pin;
+
+    private String role;
+
+    private String imageHalfData;
 }

@@ -11,4 +11,10 @@ public interface MatchResultRepository extends MongoRepository<MatchResult, Stri
     Optional<MatchResult> findByPairId(String pairId);
 
     List<MatchResult> findByEventIdOrderByCompletionTimeMsAsc(String eventId);
+
+    List<MatchResult>
+    findByUserEmailOrderByCompletedAtDesc(
+            String userEmail
+    );
+    
 }
