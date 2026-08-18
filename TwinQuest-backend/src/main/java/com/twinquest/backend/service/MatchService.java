@@ -580,12 +580,8 @@ public class MatchService {
             CompleteGameMatchRequest request
     ) {
 
-        if (request.getUserEmail() == null ||
-                request.getUserEmail().isBlank() ||
-                request.getUserEmail()
-                        .equalsIgnoreCase(
-                                "guest@pairquest.app"
-                        )) {
+        if (request.getPlayerId() == null ||
+                request.getPlayerId().isBlank()) {
 
             return;
         }
