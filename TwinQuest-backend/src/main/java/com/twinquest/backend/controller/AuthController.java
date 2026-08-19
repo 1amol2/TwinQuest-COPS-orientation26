@@ -1,7 +1,8 @@
 package com.twinquest.backend.controller;
 
-import com.twinquest.backend.model.Player;
-import com.twinquest.backend.service.PlayerService;
+import com.twinquest.backend.dto.request.GuestAuthRequest;
+import com.twinquest.backend.dto.response.GuestAuthResponse;
+import com.twinquest.backend.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -11,55 +12,15 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class AuthController {
 
-    private final PlayerService playerService;
+    private final AuthService authService;
 
     @PostMapping("/guest")
-    public ResponseEntity<GuestLoginResponse> guestLogin(
-            @RequestBody GuestLoginRequest request
-    ) {
+    public ResponseEntity<GuestAuthResponse> guestLogin(
+            @RequestBody GuestAuthRequest request) {
 
-        if (request.name() == null ||
-                request.name().isBlank()) {
-
-            return ResponseEntity.badRequest().build();
-        }
-
-        if (request.eventId() == null ||
-                request.eventId().isBlank()) {
-
-            return ResponseEntity.badRequest().build();
-        }
-
-        Player player =
-                playerService.createPlayer(
-                        request.name().trim(),
-                        request.eventId().trim(),
-                        request.avatar()
-                );
-
-        GuestLoginResponse response =
-                new GuestLoginResponse(
-                        player.getId(),
-                        player.getName(),
-                        player.getAvatar(),
-                        player.getEventId(),
-                        player.getStatus().name()
-                );
+        GuestAuthResponse response =
+                authService.authenticateGuest(request);
 
         return ResponseEntity.ok(response);
     }
-
-    public record GuestLoginRequest(
-            String name,
-            String avatar,
-            String eventId
-    ) {}
-
-    public record GuestLoginResponse(
-            String playerId,
-            String name,
-            String avatar,
-            String eventId,
-            String status
-    ) {}
 }
