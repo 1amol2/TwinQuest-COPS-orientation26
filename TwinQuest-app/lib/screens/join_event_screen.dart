@@ -197,19 +197,48 @@ class _JoinEventScreenState extends State<JoinEventScreen> {
                 onPressed: _isLoading
                     ? null
                     : () async {
-                        final provider = context.read<GameProvider>();
-                        final navigator = Navigator.of(context);
-                        setState(() => _isLoading = true);
-                        await provider.joinEvent(
-                          name: _nameController.text.trim(),
-                          code: _codeController.text.trim(),
-                          avatarSymbol: _selectedAvatar,
-                        );
-                        if (mounted) {
-                          setState(() => _isLoading = false);
-                          navigator.pushReplacementNamed(AppRoutes.waitingLobby);
-                        }
-                      },
+                  final provider = context.read<GameProvider>();
+                  final navigator = Navigator.of(context);
+
+                  setState(() => _isLoading = true);
+
+                  try {
+                    print('JOIN EVENT: starting...');
+                    print('NAME: ${_nameController.text.trim()}');
+                    print('CODE: ${_codeController.text.trim()}');
+                    print('AVATAR: $_selectedAvatar');
+
+                    await provider.joinEvent(
+                      name: _nameController.text.trim(),
+                      code: _codeController.text.trim(),
+                      avatarSymbol: _selectedAvatar,
+                    );
+
+                    print('JOIN EVENT: SUCCESS');
+
+                    if (!mounted) return;
+
+                    setState(() => _isLoading = false);
+
+                    navigator.pushReplacementNamed(
+                      AppRoutes.waitingLobby,
+                    );
+                  } catch (e) {
+                    print('JOIN EVENT ERROR: $e');
+
+                    if (!mounted) return;
+
+                    setState(() => _isLoading = false);
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Failed to join event: $e',
+                        ),
+                      ),
+                    );
+                  }
+                },
               ),
             ],
           ),

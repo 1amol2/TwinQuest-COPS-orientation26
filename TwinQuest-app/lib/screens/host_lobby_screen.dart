@@ -24,12 +24,28 @@ class _HostLobbyScreenState extends State<HostLobbyScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchLobbyPlayers();
-    _lobbyTimer = Timer.periodic(const Duration(milliseconds: 1500), (_) {
-      _fetchLobbyPlayers();
-    });
-  }
+    _initializeHostEvent();
 
+    _lobbyTimer = Timer.periodic(
+      const Duration(milliseconds: 1500),
+          (_) {
+        _fetchLobbyPlayers();
+      },
+    );
+  }
+  Future<void> _initializeHostEvent() async {
+    try {
+      final event = await ApiService.createOrientationEvent();
+
+      print('HOST EVENT CREATED/FOUND: $event');
+
+      if (!mounted) return;
+
+      _fetchLobbyPlayers();
+    } catch (e) {
+      print('HOST EVENT INITIALIZATION ERROR: $e');
+    }
+  }
   @override
   void dispose() {
     _lobbyTimer?.cancel();

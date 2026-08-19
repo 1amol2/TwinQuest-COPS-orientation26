@@ -1,51 +1,171 @@
-import 'dart:async';
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:stomp_dart_client/stomp_dart_client.dart';
 
 class WebSocketService {
   static final WebSocketService _instance = WebSocketService._internal();
+
   factory WebSocketService() => _instance;
+
   WebSocketService._internal();
 
-  WebSocketChannel? _channel;
-  StreamSubscription? _subscription;
-  final StreamController<Map<String, dynamic>> _eventController =
-      StreamController<Map<String, dynamic>>.broadcast();
+  StompClient? _client;
 
-  Stream<Map<String, dynamic>> get events => _eventController.stream;
+  String? _playerId;
 
-  void connect(String wsUrl) {
-    try {
-      disconnect();
-      _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
-      _subscription = _channel?.stream.listen(
-        (data) {
-          try {
-            final Map<String, dynamic> event = jsonDecode(data);
-            _eventController.add(event);
-          } catch (e) {
-            debugPrint('WebSocket parse error: $e');
-          }
+  bool get isConnected => _client?.connected ?? false;
+
+  /// Connect to the Spring Boot STOMP WebSocket.
+  ///
+  /// wsUrl should be something like:
+  /// ws://localhost:8080/ws
+  /// or
+  /// wss://your-railway-domain/ws
+  void connect({
+    required String wsUrl,
+    required String playerId,
+  }) {
+    debugPrint('WS: connecting...');
+    debugPrint('WS URL: $wsUrl');
+    debugPrint('WS PLAYER ID: $playerId');
+
+    disconnect();
+
+    _playerId = playerId;
+
+    _client = StompClient(
+      config: StompConfig(
+        url: wsUrl,
+
+        // Keep reconnect disabled for now.
+        // We don't want an old player session accidentally
+        // reconnecting after the app is closed.
+        reconnectDelay: Duration.zero,
+
+        onConnect: (StompFrame frame) {
+          debugPrint('WS: STOMP CONNECTED');
+          debugPrint('WS: registering player $_playerId');
+
+          _subscribeToPlayer();
+
+          // Register this player's actual STOMP session
+          // with the Spring backend.
+          _client!.send(
+            destination: '/app/pairing/join',
+            body: jsonEncode({
+              'playerId': _playerId,
+            }),
+            headers: {
+              'content-type': 'application/json',
+            },
+          );
+
+          debugPrint('WS: sent /app/pairing/join');
         },
-        onError: (err) => debugPrint('WebSocket error: $err'),
-        onDone: () => debugPrint('WebSocket connection closed'),
+
+        onDisconnect: (StompFrame frame) {
+          debugPrint('WS: STOMP DISCONNECTED');
+        },
+
+        onWebSocketDone: () {
+          debugPrint('WS: underlying WebSocket closed');
+        },
+
+        onWebSocketError: (dynamic error) {
+          debugPrint('WS: WebSocket ERROR: $error');
+        },
+
+        onStompError: (StompFrame frame) {
+          debugPrint('WS: STOMP ERROR: ${frame.body}');
+        },
+
+        onDebugMessage: (message) {
+          debugPrint('WS DEBUG: $message');
+        },
+      ),
+    );
+
+    _client!.activate();
+  }
+
+  void _subscribeToPlayer() {
+    final playerId = _playerId;
+
+    if (playerId == null || playerId.isEmpty) {
+      debugPrint('WS: Cannot subscribe - playerId is empty');
+      return;
+    }
+
+    _client!.subscribe(
+      destination: '/topic/player/$playerId',
+      callback: (StompFrame frame) {
+        debugPrint(
+          'WS PLAYER EVENT: ${frame.body}',
+        );
+      },
+    );
+
+    debugPrint(
+      'WS: subscribed to /topic/player/$playerId',
+    );
+  }
+
+  /// Sends a STOMP message to the backend.
+  void sendMessage({
+    required String destination,
+    required Map<String, dynamic> message,
+  }) {
+    if (_client == null || !_client!.connected) {
+      debugPrint('WS: Cannot send - not connected');
+      return;
+    }
+
+    _client!.send(
+      destination: destination,
+      body: jsonEncode(message),
+      headers: {
+        'content-type': 'application/json',
+      },
+    );
+  }
+
+  /// Explicitly tell backend that this player is leaving,
+  /// then close the STOMP connection.
+  void leave() {
+    final playerId = _playerId;
+
+    if (_client != null &&
+        _client!.connected &&
+        playerId != null &&
+        playerId.isNotEmpty) {
+      debugPrint('WS: sending pairing leave for $playerId');
+
+      _client!.send(
+        destination: '/app/pairing/leave',
+        body: jsonEncode({
+          'playerId': playerId,
+        }),
+        headers: {
+          'content-type': 'application/json',
+        },
       );
-    } catch (e) {
-      debugPrint('WebSocket connect error: $e');
     }
+
+    disconnect();
   }
 
-  void sendMessage(Map<String, dynamic> message) {
-    if (_channel != null) {
-      _channel!.sink.add(jsonEncode(message));
-    }
-  }
-
+  /// Close the STOMP connection.
+  ///
+  /// The backend's SessionDisconnectEvent should also
+  /// perform cleanup when the connection actually closes.
   void disconnect() {
-    _subscription?.cancel();
-    _subscription = null;
-    _channel?.sink.close();
-    _channel = null;
+    if (_client != null) {
+      debugPrint('WS: deactivating STOMP connection');
+      _client!.deactivate();
+      _client = null;
+    }
+
+    _playerId = null;
   }
 }

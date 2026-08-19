@@ -14,140 +14,66 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _googleNameController = TextEditingController(text: 'Rohan Sharma');
-  final TextEditingController _googleEmailController = TextEditingController(text: 'rohan.freshers26@itbhu.ac.in');
-  bool _isLoading = false;
+   bool _isLoading = false;
 
-  @override
-  void dispose() {
-    _googleNameController.dispose();
-    _googleEmailController.dispose();
-    super.dispose();
-  }
 
-  Future<void> _handleGoogleSignIn() async {
-    showDialog(
-      context: context,
-      builder: (context) {
-        final theme = Theme.of(context);
-        final isDark = theme.brightness == Brightness.dark;
-        final brandColor = isDark ? AppColors.amber : AppColors.primary;
 
-        return AlertDialog(
-          backgroundColor: isDark ? AppColors.darkSurface : AppColors.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          title: const Row(
-            children: [
-              Icon(Icons.g_mobiledata_rounded, size: 36, color: Color(0xFFEA4335)),
-              SizedBox(width: 8),
-              Text(
-                'Google Sign-In',
-                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Signing in saves your orientation game stats, best times, and match history to your IIT BHU email database!',
-                style: TextStyle(fontSize: 12.5, color: theme.textTheme.bodyMedium?.color),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _googleNameController,
-                decoration: InputDecoration(
-                  labelText: 'Full Name',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _googleEmailController,
-                decoration: InputDecoration(
-                  labelText: 'Institute Email',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: brandColor,
-                foregroundColor: isDark ? AppColors.darkBackground : Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              onPressed: () async {
-                final game = context.read<GameProvider>();
-                final navigator = Navigator.of(context);
-                Navigator.pop(context);
-                setState(() => _isLoading = true);
 
-                final name = _googleNameController.text.trim().isNotEmpty
-                    ? _googleNameController.text.trim()
-                    : 'Rohan Sharma';
-                final email = _googleEmailController.text.trim().isNotEmpty
-                    ? _googleEmailController.text.trim()
-                    : 'student@itbhu.ac.in';
+   Future<void> _handleGuestLogin() async {
+     final game = context.read<GameProvider>();
+     final navigator = Navigator.of(context);
 
-                // Call Spring Boot Backend Auth Endpoint
-                await ApiService.authenticateGoogle(
-                  email: email,
-                  name: name,
-                  avatar: '⚡',
-                );
+     setState(() => _isLoading = true);
 
-                await StorageService.saveUser(
-                  name: name,
-                  email: email,
-                  avatar: '⚡',
-                  authType: 'GOOGLE',
-                );
+     try {
+       final response = await ApiService.authenticateGuest(
+         name: 'Guest Freshers',
+         avatar: '🦊',
+       );
 
-                if (mounted) {
-                  game.setPlayerDetails(name: name, avatar: '⚡');
-                  setState(() => _isLoading = false);
-                  navigator.pushReplacementNamed(AppRoutes.home);
-                }
-              },
-              child: const Text('Confirm Sign In'),
-            ),
-          ],
-        );
-      },
-    );
-  }
+       debugPrint('GUEST AUTH RESPONSE: $response');
+       final userId = response['userId']?.toString();
 
-  Future<void> _handleGuestLogin() async {
-    final game = context.read<GameProvider>();
-    final navigator = Navigator.of(context);
-    setState(() => _isLoading = true);
+       debugPrint('GUEST USER ID: $userId');
 
-    // Call Spring Boot Backend Guest Endpoint
-    await ApiService.authenticateGuest(
-      name: 'Guest Freshers',
-      avatar: '🦊',
-    );
+       if (userId == null || userId.isEmpty) {
+         throw Exception('Backend did not return a user ID');
+       }
 
-    await StorageService.saveUser(
-      name: 'Guest Freshers',
-      email: 'guest@pairquest.app',
-      avatar: '🦊',
-      authType: 'GUEST',
-    );
+       await StorageService.saveUser(
+         userId: userId,
+         name: response['name']?.toString() ?? 'Guest Freshers',
+         email: response['email']?.toString() ?? '',
+         avatar: response['avatar']?.toString() ?? '🦊',
+         authType: response['authType']?.toString() ?? 'GUEST',
+       );
 
-    if (mounted) {
-      game.setPlayerDetails(name: 'Guest', avatar: '🦊');
-      setState(() => _isLoading = false);
-      navigator.pushReplacementNamed(AppRoutes.home);
-    }
-  }
+       // Verify that it was actually saved
+       final savedUser = await StorageService.getUser();
+       debugPrint('SAVED USER: $savedUser');
+
+       if (!mounted) return;
+
+       game.setPlayerDetails(
+         name: 'Guest Freshers',
+         avatar: '🦊',
+       );
+
+       setState(() => _isLoading = false);
+
+       navigator.pushReplacementNamed(AppRoutes.home);
+     } catch (e) {
+       if (!mounted) return;
+
+       setState(() => _isLoading = false);
+
+       ScaffoldMessenger.of(context).showSnackBar(
+         SnackBar(
+           content: Text('Unable to connect to server: $e'),
+         ),
+       );
+     }
+   }
 
   Future<void> _handleStaffLogin() async {
     final game = context.read<GameProvider>();
@@ -248,63 +174,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Sign in with Google (Primary Filled Button)
-                    SizedBox(
-                      height: 54,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: buttonFillColor,
-                          foregroundColor: Colors.white,
-                          elevation: 4,
-                          shadowColor: buttonFillColor.withValues(alpha: 0.35),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        onPressed: _isLoading ? null : _handleGoogleSignIn,
-                        icon: const Icon(Icons.g_mobiledata_rounded, size: 32),
-                        label: const Text(
-                          'Sign in with Google',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // OR Divider
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Divider(
-                            color: cardBorder,
-                            thickness: 1,
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            'OR',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w900,
-                              color: isDark ? AppColors.darkTextSoft : theme.textTheme.bodyMedium?.color,
-                              letterSpacing: 1.5,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Divider(
-                            color: cardBorder,
-                            thickness: 1,
-                          ),
-                        ),
-                      ],
-                    ),
 
                     const SizedBox(height: 24),
 
