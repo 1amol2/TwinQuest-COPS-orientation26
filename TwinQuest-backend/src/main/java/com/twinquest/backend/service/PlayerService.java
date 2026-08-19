@@ -24,13 +24,14 @@ public class PlayerService {
     private final PlayerRepository playerRepository;
     private final MongoTemplate mongoTemplate;
 
-
     public Player createPlayer(
+            String userId,
             String name,
             String eventId,
             String avatar
     ) {
         Player player = Player.builder()
+                .userId(userId)
                 .name(name)
                 .eventId(eventId)
                 .avatar(avatar)

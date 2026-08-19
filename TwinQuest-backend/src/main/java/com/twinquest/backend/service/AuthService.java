@@ -13,8 +13,6 @@ import java.time.Instant;
 @RequiredArgsConstructor
 public class AuthService {
 
-    private static final String GUEST_EMAIL =
-            "guest@pairquest.app";
 
     private static final String GUEST_AUTH_TYPE =
             "GUEST";
@@ -24,6 +22,12 @@ public class AuthService {
     public GuestAuthResponse authenticateGuest(
             GuestAuthRequest request
     ) {
+
+        String guestId = request.getGuestId();
+
+        if (guestId == null || guestId.isBlank()) {
+            throw new IllegalArgumentException("Guest ID is required");
+        }
 
         String name = request.getName();
 
@@ -37,15 +41,19 @@ public class AuthService {
             avatar = "🦊";
         }
 
+        final String finalGuestId = guestId.trim();
         final String finalName = name.trim();
         final String finalAvatar = avatar.trim();
 
+        String guestEmail =
+                "guest-" + finalGuestId + "@pairquest.app";
+
         User user = userRepository
-                .findByEmail(GUEST_EMAIL)
+                .findByEmail(guestEmail)
                 .orElseGet(() -> {
 
                     User newUser = User.builder()
-                            .email(GUEST_EMAIL)
+                            .email(guestEmail)
                             .name(finalName)
                             .avatar(finalAvatar)
                             .authType(GUEST_AUTH_TYPE)
@@ -56,10 +64,6 @@ public class AuthService {
                     return userRepository.save(newUser);
                 });
 
-        /*
-         * Guest accounts are reusable.
-         * Update the information supplied by the current session.
-         */
         user.setName(finalName);
         user.setAvatar(finalAvatar);
         user.setAuthType(GUEST_AUTH_TYPE);

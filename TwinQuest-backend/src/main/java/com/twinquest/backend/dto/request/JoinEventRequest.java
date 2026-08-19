@@ -6,6 +6,9 @@ import lombok.Data;
 @Data
 public class JoinEventRequest {
 
+    @NotBlank(message = "User ID is required")
+    private String userId;
+
     @NotBlank(message = "Player name is required")
     private String name;
 

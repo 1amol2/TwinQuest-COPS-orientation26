@@ -55,6 +55,7 @@ class TwinQuestWebSocketSessionIntegrationTest {
 
         Player player =
                 playerService.createPlayer(
+                        "session-test-user",
                         "Session Test Player",
                         eventId,
                         playerId
