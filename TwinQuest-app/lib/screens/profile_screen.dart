@@ -103,7 +103,7 @@ class ProfileScreen extends StatelessWidget {
                           child: Text(
                             isGuest ? '⚡ GUEST ACCOUNT' : '✅ GOOGLE VERIFIED',
                             style: TextStyle(
-                              fontSize: 10,
+                                fontSize: 10,
                               fontWeight: FontWeight.w900,
                               color: isGuest ? Colors.amber.shade800 : AppColors.green,
                               letterSpacing: 0.5,
@@ -113,27 +113,53 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 20),
 
-                      // Dynamic Stats Metric Card from Backend Database
-                      FutureBuilder<Map<String, dynamic>?>(
-                        future: ApiService.getUserProfile(email: email),
-                        builder: (context, profileSnapshot) {
-                          final profileData = profileSnapshot.data ?? {};
-                          final totalMatches = profileData['totalMatches'] ?? 0;
-                          final formattedBestTime = (profileData['formattedBestTime'] as String?)?.isNotEmpty == true
-                              ? profileData['formattedBestTime']
-                              : '--:--.--';
-                          final rankVal = profileData['rank'] ?? 0;
-                          final rankStr = rankVal > 0 ? '#$rankVal' : '--';
+                      // Local Stats
+                      FutureBuilder<List<Map<String, dynamic>>>(
+                        future: StorageService.getSavedMatches(),
+                        builder: (context, snapshot) {
+                          final matches = snapshot.data ?? [];
+
+                          int totalMatches = matches.length;
+                          int bestTimeMs = 0;
+
+                          for (final match in matches) {
+                            final duration = match['durationMs'] ?? match['duration'] ?? 0;
+
+                            if (duration is int && duration > 0) {
+                              if (bestTimeMs == 0 || duration < bestTimeMs) {
+                                bestTimeMs = duration;
+                              }
+                            }
+                          }
+
+                          String formattedBestTime = '--:--.--';
+
+                          if (bestTimeMs > 0) {
+                            final totalSeconds = bestTimeMs ~/ 1000;
+                            final minutes = totalSeconds ~/ 60;
+                            final seconds = totalSeconds % 60;
+                            final centiseconds = (bestTimeMs % 1000) ~/ 10;
+
+                            formattedBestTime =
+                            '${minutes.toString().padLeft(2, '0')}:'
+                                '${seconds.toString().padLeft(2, '0')}.'
+                                '${centiseconds.toString().padLeft(2, '0')}';
+                          }
 
                           return Container(
-                            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 18,
+                              horizontal: 16,
+                            ),
                             decoration: BoxDecoration(
                               color: cardBg,
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(color: cardBorder),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
+                                  color: Colors.black.withValues(
+                                    alpha: isDark ? 0.3 : 0.04,
+                                  ),
                                   blurRadius: 12,
                                   offset: const Offset(0, 4),
                                 ),
@@ -145,7 +171,8 @@ class ProfileScreen extends StatelessWidget {
                                   value: formattedBestTime,
                                   label: 'Best Speed',
                                   icon: Icons.flash_on_rounded,
-                                  iconColor: isDark ? AppColors.amber : AppColors.primary,
+                                  iconColor:
+                                  isDark ? AppColors.amber : AppColors.primary,
                                 ),
                                 Container(
                                   height: 36,
@@ -156,18 +183,19 @@ class ProfileScreen extends StatelessWidget {
                                   value: '$totalMatches',
                                   label: 'Matches Played',
                                   icon: Icons.people_outline_rounded,
-                                  iconColor: isDark ? AppColors.amber : AppColors.primary,
+                                  iconColor:
+                                  isDark ? AppColors.amber : AppColors.primary,
                                 ),
                                 Container(
                                   height: 36,
                                   width: 1,
                                   color: cardBorder,
                                 ),
-                                _StatItem(
-                                  value: rankStr,
+                                const _StatItem(
+                                  value: '--',
                                   label: 'Rank',
                                   icon: Icons.emoji_events_outlined,
-                                  iconColor: isDark ? AppColors.amber : AppColors.primary,
+                                  iconColor: AppColors.primary,
                                 ),
                               ],
                             ),
@@ -198,72 +226,37 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 10),
 
-                      FutureBuilder<List<dynamic>>(
-                        future: ApiService.getUserMatches(email: email),
+                      FutureBuilder<List<Map<String, dynamic>>>(
+                        future: StorageService.getSavedMatches(),
                         builder: (context, matchSnapshot) {
-                          final apiMatches = matchSnapshot.data ?? [];
+                          final matches = matchSnapshot.data ?? [];
 
-                          if (isGuest) {
+                          if (matches.isEmpty) {
                             return Container(
-                              padding: const EdgeInsets.all(18),
+                              padding: const EdgeInsets.all(24),
                               decoration: BoxDecoration(
                                 color: cardBg,
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(color: cardBorder),
                               ),
-                              child: Column(
-                                children: [
-                                  const Icon(Icons.cloud_off_rounded, size: 32, color: Colors.orange),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Guest Account (No Cloud Database Save)',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                      color: theme.textTheme.titleMedium?.color,
-                                    ),
+                              child: Center(
+                                child: Text(
+                                  'No recent matches yet.\nPlay a game to record your times!',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: theme.textTheme.bodyMedium?.color,
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Sign in with Google to persistently save match speed records and leaderboard ranks under your email!',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(fontSize: 12, color: theme.textTheme.bodyMedium?.color),
-                                  ),
-                                ],
+                                ),
                               ),
                             );
                           }
 
-                          if (apiMatches.isEmpty) {
-                            // Fallback check on local storage
-                            return FutureBuilder<List<Map<String, dynamic>>>(
-                              future: StorageService.getSavedMatches(),
-                              builder: (ctx, localSnapshot) {
-                                final localMatches = localSnapshot.data ?? [];
-                                if (localMatches.isEmpty) {
-                                  return Container(
-                                    padding: const EdgeInsets.all(24),
-                                    decoration: BoxDecoration(
-                                      color: cardBg,
-                                      borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(color: cardBorder),
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        'No recent saved matches yet.\nPlay a game to record your times in the database!',
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(fontSize: 13, color: theme.textTheme.bodyMedium?.color),
-                                      ),
-                                    ),
-                                  );
-                                }
-
-                                return _buildMatchList(localMatches, cardBg, cardBorder);
-                              },
-                            );
-                          }
-
-                          return _buildMatchList(apiMatches.cast<Map<String, dynamic>>(), cardBg, cardBorder);
+                          return _buildMatchList(
+                            matches,
+                            cardBg,
+                            cardBorder,
+                          );
                         },
                       ),
 

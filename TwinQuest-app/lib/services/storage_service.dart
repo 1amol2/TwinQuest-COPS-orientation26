@@ -26,17 +26,26 @@ class StorageService {
     required String name,
     required String email,
     required String avatar,
-    required String authType, // 'GOOGLE', 'GUEST', 'STAFF'
+    required String authType,
+    String? userId,
   }) async {
     final prefs = await SharedPreferences.getInstance();
+
     await prefs.setString('user_name', name);
     await prefs.setString('user_email', email);
     await prefs.setString('user_avatar', avatar);
     await prefs.setString('auth_type', authType);
     await prefs.setBool('is_logged_in', true);
 
+    // IMPORTANT: Save backend user ID
+    if (userId != null && userId.isNotEmpty) {
+      await prefs.setString('user_id', userId);
+    }
+
     if (_initialized) {
       final box = Hive.box(_userBoxName);
+
+      await box.put('id', userId ?? '');
       await box.put('name', name);
       await box.put('email', email);
       await box.put('avatar', avatar);
@@ -46,7 +55,9 @@ class StorageService {
 
   static Future<Map<String, String>> getUser() async {
     final prefs = await SharedPreferences.getInstance();
+
     return {
+      'id': prefs.getString('user_id') ?? '',
       'name': prefs.getString('user_name') ?? '',
       'email': prefs.getString('user_email') ?? '',
       'avatar': prefs.getString('user_avatar') ?? '⚡',

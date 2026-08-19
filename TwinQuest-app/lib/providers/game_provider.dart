@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../services/ble_service.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
-
+import '../services/websocket_service.dart';
 enum GamePhase {
   home,
   joinEvent,
@@ -119,27 +119,61 @@ class GameProvider extends ChangeNotifier {
     required String code,
     required String avatarSymbol,
   }) async {
+    final user = await StorageService.getUser();
+
+    final userId = user['id'] ?? '';
+
+    if (userId.isEmpty) {
+      throw Exception(
+        'User ID not found. Please log in again.',
+      );
+    }
+
     _playerName = name;
     _eventCode = code;
     _avatar = avatarSymbol;
     _phase = GamePhase.waiting;
     notifyListeners();
 
+    // 1. Create the player in the backend first.
     final result = await ApiService.joinEvent(
+      userId: userId,
       name: name,
       eventCode: code,
       avatar: avatarSymbol,
     );
 
+    // 2. Get the ACTUAL backend player ID.
     if (result.containsKey('id')) {
-      _playerId = result['id'];
+      _playerId = result['id'].toString();
     } else if (result.containsKey('playerId')) {
-      _playerId = result['playerId'];
+      _playerId = result['playerId'].toString();
+    } else {
+      throw Exception(
+        'Backend did not return a player ID.',
+      );
     }
 
+    if (_playerId.isEmpty) {
+      throw Exception(
+        'Backend returned an empty player ID.',
+      );
+    }
+
+    debugPrint(
+      'JOIN EVENT: backend player ID = $_playerId',
+    );
+
+    // 3. NOW connect the STOMP WebSocket.
+    WebSocketService().connect(
+      wsUrl:
+      'wss://twinquest-cops-orientation26-production-4aed.up.railway.app/ws',
+      playerId: _playerId,
+    );
+
+    // 4. Start lobby polling.
     startLobbyMatchmakingPolling();
   }
-
   void startLobbyMatchmakingPolling() {
     _lobbyPollingTimer?.cancel();
     _lobbyPollingTimer = Timer.periodic(const Duration(milliseconds: 1500), (timer) async {
@@ -292,12 +326,15 @@ class GameProvider extends ChangeNotifier {
   }
 
   Future<void> fetchLeaderboard() async {
-    final list = await ApiService.getLeaderboard(eventId: _eventCode);
+    final list = await ApiService.getLeaderboard(
+      eventCode: _eventCode,
+    );
+
     _leaderboard = list;
     notifyListeners();
   }
-
   void resetGame() {
+    WebSocketService().leave();
     _lobbyPollingTimer?.cancel();
     _touchTimer?.cancel();
     _matchTicker?.cancel();
