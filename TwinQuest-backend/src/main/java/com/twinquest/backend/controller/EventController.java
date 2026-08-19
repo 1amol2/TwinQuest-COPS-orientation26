@@ -135,4 +135,16 @@ public class EventController {
                 )
         );
     }
+    @PostMapping("/orientation")
+    public ResponseEntity<EventResponse> createOrientationEvent() {
+
+        Event event =
+                eventService.createOrientationEvent(
+                        "TwinQuest Orientation 2026"
+                );
+
+        return ResponseEntity.ok(
+                EventResponse.from(event)
+        );
+    }
 }
