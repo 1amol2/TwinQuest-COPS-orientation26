@@ -53,9 +53,9 @@ class TwinQuestTwoPlayerPairingWebSocketIntegrationTest {
          * 1. CREATE TWO PLAYERS
          * ---------------------------------------------------------
          */
-
         Player playerA =
                 playerService.createPlayer(
+                        "test-user-a",
                         "Player A",
                         eventId,
                         "DEVICE-A-" + UUID.randomUUID()
@@ -63,6 +63,7 @@ class TwinQuestTwoPlayerPairingWebSocketIntegrationTest {
 
         Player playerB =
                 playerService.createPlayer(
+                        "test-user-b",
                         "Player B",
                         eventId,
                         "DEVICE-B-" + UUID.randomUUID()

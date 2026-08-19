@@ -123,6 +123,9 @@ class TwinQuestApiIntegrationTest {
          */
 
         Map<String, String> playerARequest = Map.of(
+                "userId",
+                "test-user-a",
+
                 "name",
                 "Test Player A",
 
@@ -132,7 +135,6 @@ class TwinQuestApiIntegrationTest {
                 "avatar",
                 "avatar_a"
         );
-
         HttpEntity<Map<String, String>> playerAEntity =
                 new HttpEntity<>(
                         playerARequest,
@@ -194,6 +196,9 @@ class TwinQuestApiIntegrationTest {
          */
 
         Map<String, String> playerBRequest = Map.of(
+                "userId",
+                "test-user-b",
+
                 "name",
                 "Test Player B",
 
@@ -203,7 +208,6 @@ class TwinQuestApiIntegrationTest {
                 "avatar",
                 "avatar_b"
         );
-
         HttpEntity<Map<String, String>> playerBEntity =
                 new HttpEntity<>(
                         playerBRequest,
@@ -357,10 +361,15 @@ class TwinQuestApiIntegrationTest {
 
         // 2. Player A joins
         Map<String, String> playerARequest = Map.of(
+                "userId",
+                "pair-test-a",
+
                 "name",
                 "Pair Test A",
+
                 "eventCode",
                 eventCode,
+
                 "avatar",
                 "avatar_a"
         );
@@ -386,10 +395,15 @@ class TwinQuestApiIntegrationTest {
 
         // 3. Player B joins
         Map<String, String> playerBRequest = Map.of(
+                "userId",
+                "pair-test-b",
+
                 "name",
                 "Pair Test B",
+
                 "eventCode",
                 eventCode,
+
                 "avatar",
                 "avatar_b"
         );
@@ -638,10 +652,15 @@ class TwinQuestApiIntegrationTest {
 
         // 2. Player A joins
         Map<String, String> playerARequest = Map.of(
+                "userId",
+                "complete-test-a",
+
                 "name",
                 "Complete Test A",
+
                 "eventCode",
                 eventCode,
+
                 "avatar",
                 "avatar_a"
         );
@@ -669,10 +688,15 @@ class TwinQuestApiIntegrationTest {
 
         // 3. Player B joins
         Map<String, String> playerBRequest = Map.of(
+                "userId",
+                "complete-test-b",
+
                 "name",
                 "Complete Test B",
+
                 "eventCode",
                 eventCode,
+
                 "avatar",
                 "avatar_b"
         );
@@ -885,10 +909,15 @@ class TwinQuestApiIntegrationTest {
 
         // 2. Player A joins
         Map<String, String> playerARequest = Map.of(
+                "userId",
+                "pin-test-a",
+
                 "name",
                 "PIN Test A",
+
                 "eventCode",
                 eventCode,
+
                 "avatar",
                 "avatar_a"
         );
@@ -916,10 +945,15 @@ class TwinQuestApiIntegrationTest {
 
         // 3. Player B joins
         Map<String, String> playerBRequest = Map.of(
+                "userId",
+                "pin-test-b",
+
                 "name",
                 "PIN Test B",
+
                 "eventCode",
                 eventCode,
+
                 "avatar",
                 "avatar_b"
         );
@@ -1182,6 +1216,7 @@ class TwinQuestApiIntegrationTest {
                         baseUrl() + "/api/events/join",
                         new HttpEntity<>(
                                 Map.of(
+                                        "userId", "wrong-pin-a",
                                         "name", "Wrong PIN A",
                                         "eventCode", eventCode,
                                         "avatar", "avatar_a"
@@ -1203,6 +1238,7 @@ class TwinQuestApiIntegrationTest {
                         baseUrl() + "/api/events/join",
                         new HttpEntity<>(
                                 Map.of(
+                                        "userId", "wrong-pin-b",
                                         "name", "Wrong PIN B",
                                         "eventCode", eventCode,
                                         "avatar", "avatar_b"
@@ -1333,6 +1369,9 @@ class TwinQuestApiIntegrationTest {
                         baseUrl() + "/api/events/join",
                         new HttpEntity<>(
                                 Map.of(
+                                        "userId",
+                                        "unauthorized-test-a",
+
                                         "name",
                                         "Player A",
 
@@ -1362,6 +1401,9 @@ class TwinQuestApiIntegrationTest {
                         baseUrl() + "/api/events/join",
                         new HttpEntity<>(
                                 Map.of(
+                                        "userId",
+                                        "unauthorized-test-b",
+
                                         "name",
                                         "Player B",
 
@@ -1391,6 +1433,9 @@ class TwinQuestApiIntegrationTest {
                         baseUrl() + "/api/events/join",
                         new HttpEntity<>(
                                 Map.of(
+                                        "userId",
+                                        "unauthorized-test-c",
+
                                         "name",
                                         "Player C",
 

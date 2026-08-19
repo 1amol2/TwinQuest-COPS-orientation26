@@ -22,11 +22,11 @@ public class PlayerController {
     ) {
 
         Player player = playerService.createPlayer(
+                request.getUserId(),
                 request.getName(),
-                request.getEventCode(),
+                request.getEventId(),
                 request.getAvatar()
         );
-
         return ResponseEntity.ok(
                 PlayerResponse.from(player)
         );

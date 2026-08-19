@@ -79,6 +79,7 @@ public class EventController {
 
         Player player =
                 playerService.createPlayer(
+                        request.getUserId(),
                         request.getName(),
                         event.getId(),
                         request.getAvatar()

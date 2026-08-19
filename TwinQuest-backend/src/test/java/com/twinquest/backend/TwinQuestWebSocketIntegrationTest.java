@@ -64,15 +64,17 @@ class TwinQuestWebSocketIntegrationTest {
          */
 
         Player playerA = playerService.createPlayer(
-                "WebSocket Player A",
+                "test-user-a",
+                "Player A",
                 eventId,
-                playerAId
+                "DEVICE-A-" + UUID.randomUUID()
         );
 
         Player playerB = playerService.createPlayer(
-                "WebSocket Player B",
+                "test-user-b",
+                "Player B",
                 eventId,
-                playerBId
+                "DEVICE-B-" + UUID.randomUUID()
         );
 
         System.out.println(
