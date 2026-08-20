@@ -16,6 +16,9 @@ public class PairingSessionService {
     private final ConcurrentHashMap<String, Set<String>> playerSessions =
             new ConcurrentHashMap<>();
 
+    // Maps WebSocket session ID -> player ID
+    private final ConcurrentHashMap<String, String> sessionPlayers =
+            new ConcurrentHashMap<>();
     public void join(
             String playerId,
             String sessionId
@@ -23,23 +26,26 @@ public class PairingSessionService {
         playerSessions
                 .computeIfAbsent(
                         playerId,
-                        key -> ConcurrentHashMap.newKeySet()
+                        k -> ConcurrentHashMap.newKeySet()
                 )
                 .add(sessionId);
+
+        sessionPlayers.put(sessionId, playerId);
     }
 
     public void leave(
             String playerId,
             String sessionId
     ) {
-        Set<String> sessions =
-                playerSessions.get(playerId);
+        Set<String> sessions = playerSessions.get(playerId);
 
         if (sessions == null) {
+            sessionPlayers.remove(sessionId);
             return;
         }
 
         sessions.remove(sessionId);
+        sessionPlayers.remove(sessionId);
 
         if (sessions.isEmpty()) {
             playerSessions.remove(playerId);
@@ -48,7 +54,15 @@ public class PairingSessionService {
             playerService.deletePlayer(playerId);
         }
     }
+    public void leaveBySessionId(String sessionId) {
+        String playerId = sessionPlayers.get(sessionId);
 
+        if (playerId == null) {
+            return;
+        }
+
+        leave(playerId, sessionId);
+    }
     public boolean isActive(String playerId) {
         Set<String> sessions =
                 playerSessions.get(playerId);
