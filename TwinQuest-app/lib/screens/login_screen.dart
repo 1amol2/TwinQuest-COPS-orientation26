@@ -14,66 +14,66 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-   bool _isLoading = false;
+  bool _isLoading = false;
 
 
 
 
-   Future<void> _handleGuestLogin() async {
-     final game = context.read<GameProvider>();
-     final navigator = Navigator.of(context);
+  Future<void> _handleGuestLogin() async {
+    final game = context.read<GameProvider>();
+    final navigator = Navigator.of(context);
 
-     setState(() => _isLoading = true);
+    setState(() => _isLoading = true);
 
-     try {
-       final response = await ApiService.authenticateGuest(
-         name: 'Guest Freshers',
-         avatar: '🦊',
-       );
+    try {
+      final response = await ApiService.authenticateGuest(
+        name: 'Guest Freshers',
+        avatar: '🦊',
+      );
 
-       debugPrint('GUEST AUTH RESPONSE: $response');
-       final userId = response['userId']?.toString();
+      debugPrint('GUEST AUTH RESPONSE: $response');
+      final userId = response['userId']?.toString();
 
-       debugPrint('GUEST USER ID: $userId');
+      debugPrint('GUEST USER ID: $userId');
 
-       if (userId == null || userId.isEmpty) {
-         throw Exception('Backend did not return a user ID');
-       }
+      if (userId == null || userId.isEmpty) {
+        throw Exception('Backend did not return a user ID');
+      }
 
-       await StorageService.saveUser(
-         userId: userId,
-         name: response['name']?.toString() ?? 'Guest Freshers',
-         email: response['email']?.toString() ?? '',
-         avatar: response['avatar']?.toString() ?? '🦊',
-         authType: response['authType']?.toString() ?? 'GUEST',
-       );
+      await StorageService.saveUser(
+        userId: userId,
+        name: response['name']?.toString() ?? 'Guest Freshers',
+        email: response['email']?.toString() ?? '',
+        avatar: response['avatar']?.toString() ?? '🦊',
+        authType: response['authType']?.toString() ?? 'GUEST',
+      );
 
-       // Verify that it was actually saved
-       final savedUser = await StorageService.getUser();
-       debugPrint('SAVED USER: $savedUser');
+      // Verify that it was actually saved
+      final savedUser = await StorageService.getUser();
+      debugPrint('SAVED USER: $savedUser');
 
-       if (!mounted) return;
+      if (!mounted) return;
 
-       game.setPlayerDetails(
-         name: 'Guest Freshers',
-         avatar: '🦊',
-       );
+      game.setPlayerDetails(
+        name: 'Guest Freshers',
+        avatar: '🦊',
+      );
 
-       setState(() => _isLoading = false);
+      setState(() => _isLoading = false);
 
-       navigator.pushReplacementNamed(AppRoutes.home);
-     } catch (e) {
-       if (!mounted) return;
+      navigator.pushReplacementNamed(AppRoutes.home);
+    } catch (e) {
+      if (!mounted) return;
 
-       setState(() => _isLoading = false);
+      setState(() => _isLoading = false);
 
-       ScaffoldMessenger.of(context).showSnackBar(
-         SnackBar(
-           content: Text('Unable to connect to server: $e'),
-         ),
-       );
-     }
-   }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Unable to connect to server: $e'),
+        ),
+      );
+    }
+  }
 
   Future<void> _handleStaffLogin() async {
     final game = context.read<GameProvider>();

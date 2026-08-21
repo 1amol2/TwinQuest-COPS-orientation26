@@ -63,16 +63,28 @@ class _LobbyWaitingScreenState extends State<LobbyWaitingScreen> {
     if (game.playerId.isNotEmpty) {
       final matchData = await ApiService.getPlayerMatch(playerId: game.playerId);
       if (matchData != null && matchData.containsKey('id')) {
-        String pId = matchData['id'] ?? 'PAIR_1';
-        String r = matchData['role'] ?? 'LEFT';
-        String partner = matchData['partnerName'] ?? 'Orientation Partner';
-        String pAvatar = matchData['partnerAvatar'] ?? '🌟';
+        final String pId = matchData['id']?.toString() ?? '';
+        final String r = matchData['role']?.toString() ?? '';
+        final String partner =
+            matchData['partnerName']?.toString() ?? 'Orientation Partner';
+        final String pAvatar =
+            matchData['partnerAvatar']?.toString() ?? '🌟';
+        final String pPin = (matchData['pin'] ?? '').toString();
+        if (pId.isEmpty || r.isEmpty) {
+          debugPrint('Invalid match response: $matchData');
+          return;
+        }
+        if (pPin.length != 4) {
+          debugPrint('Invalid PIN received from backend: $matchData');
+          return;
+        }
 
         game.assignPair(
           pairId: pId,
           partnerName: partner,
           partnerAvatar: pAvatar,
           imageHalf: r,
+          pin: pPin,
         );
 
         if (mounted && !_isNavigating) {

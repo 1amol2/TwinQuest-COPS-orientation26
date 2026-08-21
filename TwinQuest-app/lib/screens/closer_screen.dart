@@ -14,6 +14,19 @@ import '../widgets/app_button.dart';
 class CloserScreen extends StatelessWidget {
   const CloserScreen({super.key});
 
+  Future<void> _goBackToPairSearch(BuildContext context) async {
+    final game = context.read<GameProvider>();
+
+    await game.returnToPairSearch();
+
+    if (!context.mounted) return;
+
+    Navigator.pushReplacementNamed(
+      context,
+      AppRoutes.pairing,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final game = context.watch<GameProvider>();
@@ -50,169 +63,194 @@ class CloserScreen extends StatelessWidget {
         break;
     }
 
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            AppHeader(
-              title: 'Bluetooth Search 🔍',
-              onBack: () => Navigator.pop(context),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const ClampingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Timer & Secret Badge Header
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: (isDark ? AppColors.amber : AppColors.primary).withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: (isDark ? AppColors.amber : AppColors.primary).withValues(alpha: 0.3),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _goBackToPairSearch(context);
+      },
+      child: Scaffold(
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              AppHeader(
+                title: 'Bluetooth Search 🔍',
+                onBack: () => _goBackToPairSearch(context),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Timer & Secret Badge Header
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: (isDark ? AppColors.amber : AppColors.primary).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: (isDark ? AppColors.amber : AppColors.primary).withValues(alpha: 0.3),
+                          ),
                         ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.lock_clock_rounded,
-                                size: 18,
-                                color: isDark ? AppColors.amber : AppColors.primary,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Partner: ??? (Secret)',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.lock_clock_rounded,
+                                  size: 18,
                                   color: isDark ? AppColors.amber : AppColors.primary,
                                 ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Partner: ??? (Secret)',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    color: isDark ? AppColors.amber : AppColors.primary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Text(
+                              game.formattedTime,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 16,
+                                color: isDark ? AppColors.amber : AppColors.primary,
+                                letterSpacing: 0.5,
                               ),
-                            ],
-                          ),
-                          Text(
-                            game.formattedTime,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 16,
-                              color: isDark ? AppColors.amber : AppColors.primary,
-                              letterSpacing: 0.5,
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
+                      const SizedBox(height: 16),
 
-                    // Signal Rings & Radar Visual
-                    Center(
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          RadarScanner(accentColor: ringColor, size: 210),
-                          SignalRings(accent: ringColor),
-                        ],
+                      // Signal Rings & Radar Visual
+                      Center(
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            RadarScanner(accentColor: ringColor, size: 210),
+                            SignalRings(accent: ringColor),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
+                      const SizedBox(height: 16),
 
-                    // Signal Status Text
-                    Text(
-                      statusTitle,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: ringColor,
-                        letterSpacing: -0.2,
+                      // Signal Status Text
+                      Text(
+                        statusTitle,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: ringColor,
+                          letterSpacing: -0.2,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      statusSubtitle,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: theme.textTheme.bodyMedium?.color,
+                      const SizedBox(height: 4),
+                      Text(
+                        statusSubtitle,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: theme.textTheme.bodyMedium?.color,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 20),
+                      const SizedBox(height: 20),
 
-                    // Metrics Container
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: cardBg,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: cardBorder),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          _MetricRow(
-                            label: 'Signal Strength (RSSI)',
-                            value: '$signalBars (${game.rssi} dBm)',
-                            valueColor: ringColor,
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            child: Divider(
-                              height: 1,
-                              thickness: 1,
-                              color: cardBorder,
+                      // Metrics Container
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: cardBg,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: cardBorder),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
                             ),
-                          ),
-                          _MetricRow(
-                            label: 'Estimated Distance',
-                            value: '${game.estimatedDistance.toStringAsFixed(1)} meters',
-                          ),
-                        ],
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            _MetricRow(
+                              label: 'Signal Strength (RSSI)',
+                              value: '$signalBars (${game.rssi} dBm)',
+                              valueColor: ringColor,
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              child: Divider(
+                                height: 1,
+                                thickness: 1,
+                                color: cardBorder,
+                              ),
+                            ),
+                            _MetricRow(
+                              label: 'Estimated Distance',
+                              value: '${game.estimatedDistance.toStringAsFixed(1)} meters',
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
+                      const SizedBox(height: 16),
 
 
 
-                    // Card Component
-                    HalfCard(
-                      number: 'Your Piece (${game.imageHalf} Half)',
-                      imageAsset: game.imageAsset,
-                    ),
+                      // Card Component
+                      HalfCard(
+                        number: 'Your Piece (${game.imageHalf} Half)',
+                        imageAsset: game.imageAsset,
+                      ),
 
-                    const SizedBox(height: 20),
+                      const SizedBox(height: 20),
 
-                    // Primary Action Button
-                    AppButton(
-                      label: level == ProximityLevel.touch
-                          ? 'TOUCH PHONES NOW 🟢'
-                          : 'VERIFY PARTNER & MATCH 🤝',
-                      gradient: isDark ? AppColors.goldGradient : AppColors.primaryGradient,
-                      onPressed: () {
-                        Navigator.pushNamed(context, AppRoutes.touch);
-                      },
-                    ),
+                      // Primary Action Button
+                      AppButton(
+                        label: level == ProximityLevel.touch
+                            ? 'TOUCH PHONES NOW 🟢'
+                            : 'VERIFY PARTNER & MATCH 🤝',
+                        gradient: isDark ? AppColors.goldGradient : AppColors.primaryGradient,
+                        onPressed: () {
+                          Navigator.pushNamed(context, AppRoutes.touch);
+                        },
+                      ),
+                      const SizedBox(height: 12),
 
-                    const SizedBox(height: 28),
-                  ],
+                      OutlinedButton.icon(
+                        onPressed: () => _goBackToPairSearch(context),
+                        icon: const Icon(Icons.arrow_back_rounded),
+                        label: const Text('BACK TO PAIR SEARCH'),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                          foregroundColor: isDark
+                              ? AppColors.darkText
+                              : AppColors.text,
+                          side: BorderSide(color: cardBorder),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
+        ),
+        bottomNavigationBar: const PairQuestBottomNav(
+            selectedIndex: 0
         ),
       ),
-      bottomNavigationBar: const PairQuestBottomNav(selectedIndex: 0),
     );
   }
 }

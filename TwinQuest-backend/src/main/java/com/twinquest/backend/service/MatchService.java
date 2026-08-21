@@ -158,10 +158,18 @@ public class MatchService {
                 status
         );
 
-        pair.setStatus(status);
-
         if (status == PairStatus.FOUND) {
             pair.setMatchedAt(Instant.now());
+
+            updatePlayerStatus(
+                    pair.getPlayerAId(),
+                    PlayerStatus.MATCHED
+            );
+
+            updatePlayerStatus(
+                    pair.getPlayerBId(),
+                    PlayerStatus.MATCHED
+            );
         }
 
         Pair savedPair = pairRepository.save(pair);
@@ -447,28 +455,46 @@ public class MatchService {
 
         /*
          * PIN verification is allowed only after
-         * the pair has been found.
+         * the phones have physically found each other.
          */
         if (pair.getStatus() != PairStatus.FOUND &&
                 pair.getStatus() != PairStatus.CONFIRMED) {
 
             return MatchCompletionResponse.failure(
-                    "Pair is not ready for completion"
+                    "Pair is not ready for PIN verification. Current status: "
+                            + pair.getStatus()
             );
         }
 
         /*
-         * Each player must enter the OTHER player's PIN.
-         *
-         * Player A -> must enter Player B's PIN
-         * Player B -> must enter Player A's PIN
+         * Player A must enter Player B's PIN.
+         * Player B must enter Player A's PIN.
          */
         String expectedPin =
                 isPlayerA
                         ? pair.getPlayerBPin()
                         : pair.getPlayerAPin();
 
+        /*
+         * DEBUG: This is the important PIN debug.
+         */
+        System.out.println(
+                "PIN VERIFY DEBUG: " +
+                        "pair=" + pair.getId() +
+                        " player=" + request.getPlayerId() +
+                        " entered=" + request.getPin() +
+                        " expected=" + expectedPin +
+                        " isPlayerA=" + isPlayerA
+        );
+
+        /*
+         * Check the partner PIN.
+         */
         if (!expectedPin.equals(request.getPin())) {
+
+            System.out.println(
+                    "PIN VERIFY FAILED: incorrect partner PIN"
+            );
 
             return MatchCompletionResponse.failure(
                     "Invalid partner PIN"
@@ -476,8 +502,7 @@ public class MatchService {
         }
 
         /*
-         * Mark the player who just entered the correct
-         * partner PIN as verified.
+         * Mark THIS player as verified.
          */
         if (isPlayerA) {
             pair.setPlayerAVerified(true);
@@ -485,42 +510,79 @@ public class MatchService {
             pair.setPlayerBVerified(true);
         }
 
+        boolean bothVerified =
+                pair.isPlayerAVerified()
+                        && pair.isPlayerBVerified();
+
+        /*
+         * BOTH players have verified.
+         */
+        if (bothVerified) {
+
+            pair.setStatus(PairStatus.COMPLETED);
+
+            pair.setCompletionTimeMs(
+                    request.getDurationMs()
+            );
+
+            updatePlayerStatus(
+                    pair.getPlayerAId(),
+                    PlayerStatus.COMPLETED
+            );
+
+            updatePlayerStatus(
+                    pair.getPlayerBId(),
+                    PlayerStatus.COMPLETED
+            );
+
+        } else {
+
+            /*
+             * Only this player has verified.
+             *
+             * The other player still needs to enter
+             * this player's PIN.
+             */
+            pair.setStatus(PairStatus.CONFIRMED);
+
+            updatePlayerStatus(
+                    request.getPlayerId(),
+                    PlayerStatus.MATCHED
+            );
+        }
+
         Pair savedPair =
                 pairRepository.save(pair);
 
+        System.out.println(
+                "PIN VERIFY SUCCESS: " +
+                        "playerA_verified=" +
+                        savedPair.isPlayerAVerified() +
+                        " playerB_verified=" +
+                        savedPair.isPlayerBVerified() +
+                        " status=" +
+                        savedPair.getStatus()
+        );
+
         /*
-         * Only one player has verified so far.
-         *
-         * The match must NOT end yet.
+         * Only one player has verified.
          */
-        if (!savedPair.isPlayerAVerified()
-                || !savedPair.isPlayerBVerified()) {
+        if (!bothVerified) {
+
+            notifyPlayers(
+                    savedPair,
+                    "PAIR_CONFIRMED"
+            );
 
             return MatchCompletionResponse.builder()
-                    .status("VERIFIED")
+                    .status("CONFIRMED")
                     .pairId(savedPair.getId())
                     .build();
         }
 
         /*
-         * BOTH players have now entered the correct
-         * partner PIN.
-         *
-         * The match can finally be completed.
-         */
-        savedPair.setCompletionTimeMs(
-                request.getDurationMs()
-        );
-
-        savedPair.setStatus(
-                PairStatus.COMPLETED
-        );
-
-        savedPair =
-                pairRepository.save(savedPair);
-
-        /*
-         * Save the completed match result.
+         * Both players have verified.
+         * Now save the completed match result.
          */
         saveMatchResult(
                 savedPair,
@@ -547,8 +609,8 @@ public class MatchService {
         );
 
         /*
-         * If the image doesn't exist, the match is still
-         * successfully completed.
+         * Match is complete even if the image
+         * somehow doesn't exist.
          */
         if (image == null) {
 
