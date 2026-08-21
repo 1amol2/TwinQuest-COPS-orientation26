@@ -59,12 +59,15 @@ class GameProvider extends ChangeNotifier {
   final int touchRequiredDurationMs = 2500;
 
   // Stopwatch & Timer
+  // Stopwatch & Timer
   final Stopwatch _matchStopwatch = Stopwatch();
   String _formattedTime = '00:00.00';
   int _finalDurationMs = 0;
+
   Timer? _matchTicker;
   Timer? _lobbyPollingTimer;
   Timer? _lobbyRosterTimer;
+  Timer? _matchCompletionPollingTimer;
   // Leaderboard data
   List<dynamic> _leaderboard = [];
   // Live lobby roster
@@ -182,14 +185,98 @@ class GameProvider extends ChangeNotifier {
       wsUrl:
       'wss://twinquest-cops-orientation26-production-4aed.up.railway.app/ws',
       playerId: _playerId,
+      onPlayerEvent: _handleWebSocketEvent,
     );
 
     // 4. Start lobby matchmaking polling.
     startLobbyMatchmakingPolling();
 
+
+
 // 5. Start live lobby roster polling.
     startLobbyRosterPolling();
 
+  }
+  void _handleWebSocketEvent(
+      Map<String, dynamic> event,
+      ) {
+    final type = event['type']?.toString();
+    final status = event['status']?.toString();
+    final eventPairId = event['pairId']?.toString();
+
+    debugPrint('========================================');
+    debugPrint('GAME PROVIDER WS EVENT');
+    debugPrint('Type: $type');
+    debugPrint('Status: $status');
+    debugPrint('Pair ID: $eventPairId');
+    debugPrint('Current Pair ID: $_pairId');
+    debugPrint('Current Phase: $_phase');
+    debugPrint('========================================');
+
+    // Ignore events belonging to another pair.
+    if (eventPairId != null &&
+        eventPairId.isNotEmpty &&
+        _pairId.isNotEmpty &&
+        eventPairId != _pairId) {
+      debugPrint(
+        'WS EVENT IGNORED: pair ID does not match',
+      );
+      return;
+    }
+
+    if (type == 'PAIR_FOUND') {
+      debugPrint(
+        'WS: PAIR_FOUND received',
+      );
+
+      _proximityLevel = ProximityLevel.touch;
+
+      if (_phase == GamePhase.closer) {
+        _phase = GamePhase.touchMatch;
+      }
+
+      notifyListeners();
+      return;
+    }
+
+    if (type == 'PAIR_CONFIRMED') {
+      debugPrint(
+        'WS: PAIR_CONFIRMED received',
+      );
+
+      // The partner has verified their PIN.
+      // If this phone has already verified, the backend
+      // may soon send PAIR_COMPLETED.
+      notifyListeners();
+      return;
+    }
+
+    if (type == 'PAIR_COMPLETED') {
+      debugPrint('========================================');
+      debugPrint('WS: PAIR_COMPLETED RECEIVED');
+      debugPrint('Pair ID: $_pairId');
+      debugPrint('Player ID: $_playerId');
+      debugPrint('Moving this device to RESULT');
+      debugPrint('========================================');
+
+      _bleService.stopMonitoring();
+
+      _touchTimer?.cancel();
+      _touchTimer = null;
+
+      _matchStopwatch.stop();
+
+      _matchTicker?.cancel();
+
+      _finalDurationMs =
+          _matchStopwatch.elapsedMilliseconds;
+
+      _phase = GamePhase.matchResult;
+
+      notifyListeners();
+
+      return;
+    }
   }
   void startLobbyMatchmakingPolling() {
     _lobbyPollingTimer?.cancel();
@@ -652,7 +739,10 @@ class GameProvider extends ChangeNotifier {
         debugPrint('========================================');
         debugPrint('PIN VERIFY RESULT: CONFIRMED');
         debugPrint('Waiting for partner verification');
+        debugPrint('STARTING COMPLETION POLLING');
         debugPrint('========================================');
+
+        startMatchCompletionPolling();
 
         return MatchVerificationResult.confirmed;
       }
@@ -691,6 +781,101 @@ class GameProvider extends ChangeNotifier {
       return MatchVerificationResult.invalid;
     }
   }
+  void startMatchCompletionPolling() {
+    _matchCompletionPollingTimer?.cancel();
+
+    debugPrint('========================================');
+    debugPrint('STARTING MATCH COMPLETION POLLING');
+    debugPrint('Pair ID: $_pairId');
+    debugPrint('========================================');
+
+    _matchCompletionPollingTimer = Timer.periodic(
+      const Duration(seconds: 1),
+          (timer) async {
+        try {
+          final pair = await ApiService.getPlayerMatch(
+            playerId: _playerId,
+          );
+
+          if (pair == null) {
+            debugPrint('MATCH STATUS POLL: no pair returned');
+            return;
+          }
+
+          final status = pair['status']?.toString();
+
+          debugPrint(
+            'MATCH STATUS POLL: status=$status',
+          );
+
+          if (status == 'COMPLETED') {
+            timer.cancel();
+            _matchCompletionPollingTimer = null;
+
+            debugPrint('========================================');
+            debugPrint('PARTNER FINISHED VERIFICATION');
+            debugPrint('PAIR IS COMPLETED');
+            debugPrint('========================================');
+
+            await _finishCompletedMatch();
+          }
+        } catch (e, stackTrace) {
+          debugPrint('MATCH COMPLETION POLL ERROR: $e');
+          debugPrint('$stackTrace');
+        }
+      },
+    );
+  }
+  Future<void> _finishCompletedMatch() async {
+    debugPrint('========================================');
+    debugPrint('FINISHING COMPLETED MATCH');
+    debugPrint('Pair ID: $_pairId');
+    debugPrint('========================================');
+
+    try {
+      await _bleService.stopMonitoring();
+    } catch (e) {
+      debugPrint('BLE STOP ERROR: $e');
+    }
+
+    _matchStopwatch.stop();
+    _matchTicker?.cancel();
+
+    _finalDurationMs =
+        _matchStopwatch.elapsedMilliseconds;
+
+    _phase = GamePhase.matchResult;
+
+    notifyListeners();
+
+    try {
+      await StorageService.saveMatch(
+        partnerName: _partnerName,
+        timeFormatted: _formattedTime,
+        durationMs: _finalDurationMs,
+        avatar: _partnerAvatar,
+      );
+
+      debugPrint('MATCH SAVED SUCCESSFULLY');
+    } catch (e, stackTrace) {
+      debugPrint('SAVE MATCH ERROR: $e');
+      debugPrint('$stackTrace');
+    }
+
+    try {
+      await fetchLeaderboard();
+
+      debugPrint('LEADERBOARD FETCHED');
+    } catch (e, stackTrace) {
+      debugPrint('LEADERBOARD ERROR: $e');
+      debugPrint('$stackTrace');
+    }
+
+    debugPrint('========================================');
+    debugPrint('MATCH RESULT PHASE SET');
+    debugPrint('========================================');
+  }
+
   Future<void> fetchLeaderboard() async {
     final list = await ApiService.getLeaderboard(
       eventCode: _eventCode,
@@ -700,6 +885,8 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
   Future<void> returnToPairSearch() async {
+    _matchCompletionPollingTimer?.cancel();
+    _matchCompletionPollingTimer = null;
     // Stop BLE proximity monitoring.
     _bleService.stopMonitoring();
 
@@ -742,6 +929,8 @@ class GameProvider extends ChangeNotifier {
     startLobbyRosterPolling();
   }
   void resetGame() {
+    _matchCompletionPollingTimer?.cancel();
+    _matchCompletionPollingTimer = null;
     WebSocketService().leave();
 
     _lobbyPollingTimer?.cancel();

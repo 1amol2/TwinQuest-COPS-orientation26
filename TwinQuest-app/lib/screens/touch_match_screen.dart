@@ -9,10 +9,17 @@ import '../widgets/half_card.dart';
 import '../widgets/signal_rings.dart';
 import '../widgets/app_button.dart';
 
-class TouchMatchScreen extends StatelessWidget {
+class TouchMatchScreen extends StatefulWidget {
   const TouchMatchScreen({super.key});
 
-  void _showQrPinDialog(BuildContext context, GameProvider game) {
+  @override
+  State<TouchMatchScreen> createState() =>
+      _TouchMatchScreenState();
+}
+
+class _TouchMatchScreenState extends State<TouchMatchScreen> {
+  void _showQrPinDialog(BuildContext context, GameProvider game)
+  {
     final pinController = TextEditingController();
     String? errorMessage;
     bool isSubmitting = false;
@@ -150,11 +157,8 @@ class TouchMatchScreen extends StatelessWidget {
                               break;
 
                             case MatchVerificationResult.completed:
-                              Navigator.pop(ctx);
-                              Navigator.pushReplacementNamed(
-                                context,
-                                AppRoutes.result,
-                              );
+                            // GameProvider has already changed the phase to matchResult.
+                            // _onGameStateChanged() will handle navigation.
                               break;
                           }
                         },
@@ -173,7 +177,49 @@ class TouchMatchScreen extends StatelessWidget {
       },
     );
   }
+  @override
+  void initState() {
+    super.initState();
 
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      final game = context.read<GameProvider>();
+      game.addListener(_onGameStateChanged);
+    });
+  }
+
+  void _onGameStateChanged() {
+    if (!mounted) return;
+
+    final game = context.read<GameProvider>();
+
+    if (game.phase == GamePhase.matchResult) {
+      debugPrint(
+        'TOUCH SCREEN: matchResult detected - navigating to result',
+      );
+
+      game.removeListener(_onGameStateChanged);
+
+      // Close the PIN dialog if it is still open.
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+
+      Navigator.pushReplacementNamed(
+        context,
+        AppRoutes.result,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    final game = context.read<GameProvider>();
+    game.removeListener(_onGameStateChanged);
+
+    super.dispose();
+  }
   @override
   Widget build(BuildContext context) {
     final game = context.watch<GameProvider>();

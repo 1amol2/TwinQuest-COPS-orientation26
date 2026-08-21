@@ -16,9 +16,17 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
 
+  final TextEditingController _staffKeyController =
+  TextEditingController();
+
+  String? _staffKeyError;
 
 
-
+  @override
+  void dispose() {
+    _staffKeyController.dispose();
+    super.dispose();
+  }
   Future<void> _handleGuestLogin() async {
     final game = context.read<GameProvider>();
     final navigator = Navigator.of(context);
@@ -76,24 +84,194 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleStaffLogin() async {
-    final game = context.read<GameProvider>();
-    final navigator = Navigator.of(context);
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+    });
 
-    await StorageService.saveUser(
-      name: 'COPS Admin / Staff',
-      email: 'admin@copsiitbhu.org',
-      avatar: '👑',
-      authType: 'STAFF',
-    );
+    try {
+      await StorageService.saveUser(
+        name: 'COPS Admin / Staff',
+        email: 'admin@copsiitbhu.org',
+        avatar: '👑',
+        authType: 'STAFF',
+      );
 
-    if (mounted) {
-      game.setPlayerDetails(name: 'COPS Admin', avatar: '👑');
-      setState(() => _isLoading = false);
-      navigator.pushReplacementNamed(AppRoutes.hostLobby);
+      if (!mounted) return;
+
+      final game = context.read<GameProvider>();
+
+      game.setPlayerDetails(
+        name: 'COPS Admin',
+        avatar: '👑',
+      );
+
+      Navigator.pushReplacementNamed(
+        context,
+        AppRoutes.hostLobby,
+      );
+    } catch (e) {
+      debugPrint('STAFF LOGIN ERROR: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
+  void _showStaffKeyDialog() {
+    const adminKey = '1admin23';
+    final keyController = TextEditingController();
+    String? errorMessage;
+    bool isChecking = false;
 
+    showDialog(
+      context: context,
+      barrierDismissible: !isChecking,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              title: const Row(
+                children: [
+                  Icon(
+                    Icons.admin_panel_settings_rounded,
+                    color: AppColors.primary,
+                    size: 28,
+                  ),
+                  SizedBox(width: 10),
+                  Text(
+                    'Staff Access',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                ],
+              ),
+
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Enter the staff access key to continue to the Host Lobby.',
+                    style: TextStyle(
+                      fontSize: 13,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  TextField(
+                    controller: keyController,
+                    obscureText: true,
+                    autofocus: true,
+                    enabled: !isChecking,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) {
+                      // Optional: trigger the same validation as Proceed
+                    },
+                    decoration: InputDecoration(
+                      labelText: 'Staff Access Key',
+                      hintText: 'Enter key',
+                      prefixIcon: const Icon(
+                        Icons.key_rounded,
+                      ),
+                      suffixIcon: const Icon(
+                        Icons.lock_outline_rounded,
+                      ),
+                      errorText: errorMessage,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              actions: [
+                TextButton(
+                  onPressed: isChecking
+                      ? null
+                      : () {
+                    Navigator.pop(dialogContext);
+                  },
+                  child: const Text('Cancel'),
+                ),
+
+                ElevatedButton(
+                  onPressed: isChecking
+                      ? null
+                      : () async {
+                    final enteredKey =
+                    keyController.text.trim();
+
+                    if (enteredKey.isEmpty) {
+                      setDialogState(() {
+                        errorMessage =
+                        'Please enter the staff access key.';
+                      });
+                      return;
+                    }
+
+                    setDialogState(() {
+                      isChecking = true;
+                      errorMessage = null;
+                    });
+
+                    // TEMPORARY CHECK
+                    //
+                    // Replace this with backend verification.
+                    const adminKey = '1admin23';
+
+                    await Future.delayed(
+                      const Duration(milliseconds: 300),
+                    );
+
+                    if (enteredKey != adminKey) {
+                      setDialogState(() {
+                        isChecking = false;
+                        errorMessage =
+                        '❌ Invalid staff access key.';
+                      });
+                      return;
+                    }
+
+                    if (!mounted) return;
+
+                    Navigator.pop(dialogContext);
+
+                    await _handleStaffLogin();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: isChecking
+                      ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                      : const Text('Proceed'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -188,7 +366,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             borderRadius: BorderRadius.circular(16),
                           ),
                         ),
-                        onPressed: _isLoading ? null : _handleStaffLogin,
+                        onPressed: _isLoading ? null : _showStaffKeyDialog,
                         icon: Icon(Icons.admin_panel_settings_outlined, size: 20, color: brandColor),
                         label: Text(
                           'Staff Login',
