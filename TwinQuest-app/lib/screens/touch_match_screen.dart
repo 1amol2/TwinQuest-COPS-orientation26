@@ -126,18 +126,36 @@ class TouchMatchScreen extends StatelessWidget {
                             errorMessage = null;
                           });
 
-                          final success = await game.completeMatch(inputPin: enteredPin);
+                          final result = await game.completeMatch(
+                            inputPin: enteredPin,
+                          );
 
-                          if (context.mounted) {
-                            if (success) {
-                              Navigator.pop(ctx);
-                              Navigator.pushReplacementNamed(context, AppRoutes.result);
-                            } else {
+                          if (!context.mounted) return;
+
+                          switch (result) {
+                            case MatchVerificationResult.invalid:
                               setDialogState(() {
                                 isSubmitting = false;
-                                errorMessage = '❌ Invalid PIN! Ask partner for their screen PIN.';
+                                errorMessage =
+                                '❌ Invalid PIN! Ask partner for their screen PIN.';
                               });
-                            }
+                              break;
+
+                            case MatchVerificationResult.confirmed:
+                              setDialogState(() {
+                                isSubmitting = false;
+                                errorMessage =
+                                '✅ PIN verified! Waiting for your partner...';
+                              });
+                              break;
+
+                            case MatchVerificationResult.completed:
+                              Navigator.pop(ctx);
+                              Navigator.pushReplacementNamed(
+                                context,
+                                AppRoutes.result,
+                              );
+                              break;
                           }
                         },
                   child: isSubmitting
