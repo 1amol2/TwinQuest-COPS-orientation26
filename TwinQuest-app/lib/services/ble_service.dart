@@ -23,6 +23,8 @@ class BLEService {
   BLEService._internal();
 
   static const int _manufacturerId = 0x5451;
+  static const int _touchEnterRssi = -55;
+  static const int _touchExitRssi = -60;
 
   // TQ + 8 chars pair ID + 8 chars player ID
   static const List<int> _magic = [0x54, 0x51];
