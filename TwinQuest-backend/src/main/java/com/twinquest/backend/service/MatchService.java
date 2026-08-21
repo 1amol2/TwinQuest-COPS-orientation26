@@ -693,4 +693,44 @@ public class MatchService {
 
         matchResultRepository.save(result);
     }
+    public Pair markPairFound(String pairId) {
+
+        Pair pair = getPairById(pairId);
+
+        PairStatus previousStatus = pair.getStatus();
+
+        validateStatusTransition(
+                previousStatus,
+                PairStatus.FOUND
+        );
+
+        pair.setStatus(PairStatus.FOUND);
+
+        pair.setMatchedAt(Instant.now());
+
+        updatePlayerStatus(
+                pair.getPlayerAId(),
+                PlayerStatus.MATCHED
+        );
+
+        updatePlayerStatus(
+                pair.getPlayerBId(),
+                PlayerStatus.MATCHED
+        );
+
+        Pair savedPair = pairRepository.save(pair);
+
+        System.out.println("========================================");
+        System.out.println("PAIR STATUS CHANGED");
+        System.out.println("Pair ID: " + savedPair.getId());
+        System.out.println(
+                "Status: "
+                        + previousStatus
+                        + " -> "
+                        + savedPair.getStatus()
+        );
+        System.out.println("========================================");
+
+        return savedPair;
+    }
 }
