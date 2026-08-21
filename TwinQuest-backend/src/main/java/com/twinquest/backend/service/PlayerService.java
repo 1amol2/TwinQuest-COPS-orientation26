@@ -76,6 +76,11 @@ public class PlayerService {
 
     public Optional<Player> claimWaitingPlayer(String eventId) {
 
+        System.out.println("========================================");
+        System.out.println("CLAIM WAITING PLAYER");
+        System.out.println("EVENT ID: " + eventId);
+        System.out.println("========================================");
+
         Query query = new Query();
 
         query.addCriteria(
@@ -103,6 +108,21 @@ public class PlayerService {
                 options,
                 Player.class
         );
+
+        if (player == null) {
+
+            System.out.println("NO WAITING PLAYER FOUND");
+
+        } else {
+
+            System.out.println("PLAYER CLAIMED");
+            System.out.println("PLAYER ID: " + player.getId());
+            System.out.println("PLAYER NAME: " + player.getName());
+            System.out.println("PLAYER STATUS: " + player.getStatus());
+
+        }
+
+        System.out.println("========================================");
 
         return Optional.ofNullable(player);
     }

@@ -369,18 +369,38 @@ public class MatchService {
     }
     public int startMatchmaking(String eventId) {
 
+        System.out.println("========================================");
+        System.out.println("START MATCHMAKING CALLED");
+        System.out.println("EVENT ID: " + eventId);
+        System.out.println("========================================");
+
         int pairsCreated = 0;
 
         while (true) {
 
+            System.out.println("Trying to create next pair...");
+
             Pair pair = findAndCreateMatch(eventId);
 
             if (pair == null) {
+                System.out.println("NO MORE PLAYERS TO PAIR");
                 break;
             }
 
             pairsCreated++;
+
+            System.out.println("PAIR CREATED #" + pairsCreated);
+            System.out.println("PAIR ID: " + pair.getId());
+            System.out.println("PLAYER A: " + pair.getPlayerAId());
+            System.out.println("PLAYER B: " + pair.getPlayerBId());
+            System.out.println("PAIR STATUS: " + pair.getStatus());
+            System.out.println("========================================");
         }
+
+        System.out.println("========================================");
+        System.out.println("MATCHMAKING FINISHED");
+        System.out.println("TOTAL PAIRS CREATED: " + pairsCreated);
+        System.out.println("========================================");
 
         return pairsCreated;
     }
