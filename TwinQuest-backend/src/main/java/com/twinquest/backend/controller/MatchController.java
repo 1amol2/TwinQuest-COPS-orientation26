@@ -87,8 +87,18 @@ public class MatchController {
     public ResponseEntity<Pair> markPairFound(
             @PathVariable String pairId
     ) {
-        return ResponseEntity.ok(
-                matchService.markPairFound(pairId)
-        );
+        System.out.println("========================================");
+        System.out.println("FOUND ENDPOINT HIT");
+        System.out.println("Pair ID: " + pairId);
+        System.out.println("========================================");
+
+        Pair result = matchService.markPairFound(pairId);
+
+        System.out.println("FOUND ENDPOINT RESPONSE");
+        System.out.println("Pair ID: " + result.getId());
+        System.out.println("Status: " + result.getStatus());
+        System.out.println("========================================");
+
+        return ResponseEntity.ok(result);
     }
 }
