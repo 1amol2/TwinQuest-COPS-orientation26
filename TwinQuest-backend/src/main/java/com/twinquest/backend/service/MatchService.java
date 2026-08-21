@@ -266,8 +266,10 @@ public class MatchService {
         playerService.updatePlayer(player);
     }
     public Pair findAndCreateMatch(String eventId) {
+
         System.out.println("========== FIND AND CREATE MATCH ==========");
         System.out.println("Event ID: " + eventId);
+
         Optional<Player> playerA =
                 playerService.claimWaitingPlayer(eventId);
 
@@ -275,16 +277,13 @@ public class MatchService {
             return null;
         }
 
-
         Optional<Player> playerB =
                 playerService.claimWaitingPlayer(eventId);
 
-
         if (playerB.isEmpty()) {
 
-            // No second player yet
-            // revert first player back
-
+            // No second player yet.
+            // Revert first player back to WAITING.
             Player firstPlayer = playerA.get();
 
             firstPlayer.setStatus(PlayerStatus.WAITING);
@@ -293,7 +292,6 @@ public class MatchService {
 
             return null;
         }
-
 
         System.out.println("========== MATCHMAKING ==========");
         System.out.println("EVENT ID: " + eventId);
@@ -307,16 +305,6 @@ public class MatchService {
         System.out.println("PAIR AFTER createPair()");
         System.out.println("PAIR ID: " + pair.getId());
         System.out.println("STATUS: " + pair.getStatus());
-
-        pair = updatePairStatus(
-                pair.getId(),
-                PairStatus.SEARCHING
-        );
-
-        System.out.println("PAIR AFTER SEARCHING TRANSITION");
-        System.out.println("PAIR ID: " + pair.getId());
-        System.out.println("STATUS: " + pair.getStatus());
-
         System.out.println("===============================");
 
         return pair;
