@@ -4,7 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:stomp_dart_client/stomp_dart_client.dart';
 
 class WebSocketService {
-  static final WebSocketService _instance = WebSocketService._internal();
+  static final WebSocketService _instance =
+  WebSocketService._internal();
 
   factory WebSocketService() => _instance;
 
@@ -16,15 +17,13 @@ class WebSocketService {
 
   bool get isConnected => _client?.connected ?? false;
 
-  /// Connect to the Spring Boot STOMP WebSocket.
-  ///
-  /// wsUrl should be something like:
-  /// ws://localhost:8080/ws
-  /// or
-  /// wss://your-railway-domain/ws
+  // Callback used to notify GameProvider about backend events.
+  Function(Map<String, dynamic>)? _onPlayerEvent;
+
   void connect({
     required String wsUrl,
     required String playerId,
+    Function(Map<String, dynamic>)? onPlayerEvent,
   }) {
     debugPrint('WS: connecting...');
     debugPrint('WS URL: $wsUrl');
@@ -33,14 +32,12 @@ class WebSocketService {
     disconnect();
 
     _playerId = playerId;
+    _onPlayerEvent = onPlayerEvent;
 
     _client = StompClient(
       config: StompConfig(
         url: wsUrl,
 
-        // Keep reconnect disabled for now.
-        // We don't want an old player session accidentally
-        // reconnecting after the app is closed.
         reconnectDelay: Duration.zero,
 
         onConnect: (StompFrame frame) {
@@ -49,8 +46,6 @@ class WebSocketService {
 
           _subscribeToPlayer();
 
-          // Register this player's actual STOMP session
-          // with the Spring backend.
           _client!.send(
             destination: '/app/pairing/join',
             body: jsonEncode({
@@ -77,7 +72,9 @@ class WebSocketService {
         },
 
         onStompError: (StompFrame frame) {
-          debugPrint('WS: STOMP ERROR: ${frame.body}');
+          debugPrint(
+            'WS: STOMP ERROR: ${frame.body}',
+          );
         },
 
         onDebugMessage: (message) {
@@ -93,16 +90,42 @@ class WebSocketService {
     final playerId = _playerId;
 
     if (playerId == null || playerId.isEmpty) {
-      debugPrint('WS: Cannot subscribe - playerId is empty');
+      debugPrint(
+        'WS: Cannot subscribe - playerId is empty',
+      );
       return;
     }
 
     _client!.subscribe(
       destination: '/topic/player/$playerId',
       callback: (StompFrame frame) {
-        debugPrint(
-          'WS PLAYER EVENT: ${frame.body}',
-        );
+        debugPrint('========================================');
+        debugPrint('WS PLAYER EVENT RECEIVED');
+        debugPrint('Player ID: $playerId');
+        debugPrint('Raw body: ${frame.body}');
+        debugPrint('========================================');
+
+        if (frame.body == null || frame.body!.isEmpty) {
+          debugPrint('WS: Empty event body');
+          return;
+        }
+
+        try {
+          final Map<String, dynamic> event =
+          jsonDecode(frame.body!);
+
+          debugPrint('WS EVENT TYPE: ${event['type']}');
+          debugPrint('WS EVENT STATUS: ${event['status']}');
+          debugPrint('WS EVENT PAIR ID: ${event['pairId']}');
+
+          // Forward the event to GameProvider.
+          _onPlayerEvent?.call(event);
+
+        } catch (e) {
+          debugPrint(
+            'WS: Failed to parse player event: $e',
+          );
+        }
       },
     );
 
@@ -111,13 +134,14 @@ class WebSocketService {
     );
   }
 
-  /// Sends a STOMP message to the backend.
   void sendMessage({
     required String destination,
     required Map<String, dynamic> message,
   }) {
     if (_client == null || !_client!.connected) {
-      debugPrint('WS: Cannot send - not connected');
+      debugPrint(
+        'WS: Cannot send - not connected',
+      );
       return;
     }
 
@@ -130,8 +154,6 @@ class WebSocketService {
     );
   }
 
-  /// Explicitly tell backend that this player is leaving,
-  /// then close the STOMP connection.
   void leave() {
     final playerId = _playerId;
 
@@ -139,7 +161,9 @@ class WebSocketService {
         _client!.connected &&
         playerId != null &&
         playerId.isNotEmpty) {
-      debugPrint('WS: sending pairing leave for $playerId');
+      debugPrint(
+        'WS: sending pairing leave for $playerId',
+      );
 
       _client!.send(
         destination: '/app/pairing/leave',
@@ -155,17 +179,17 @@ class WebSocketService {
     disconnect();
   }
 
-  /// Close the STOMP connection.
-  ///
-  /// The backend's SessionDisconnectEvent should also
-  /// perform cleanup when the connection actually closes.
   void disconnect() {
     if (_client != null) {
-      debugPrint('WS: deactivating STOMP connection');
+      debugPrint(
+        'WS: deactivating STOMP connection',
+      );
+
       _client!.deactivate();
       _client = null;
     }
 
     _playerId = null;
+    _onPlayerEvent = null;
   }
 }
