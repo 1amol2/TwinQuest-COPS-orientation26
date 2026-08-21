@@ -481,7 +481,19 @@ public class MatchService {
         boolean isPlayerB =
                 request.getPlayerId()
                         .equals(pair.getPlayerBId());
-
+        System.out.println("========================================");
+        System.out.println("BACKEND PIN VERIFY REQUEST");
+        System.out.println("Pair ID: " + request.getPairId());
+        System.out.println("Request Player ID: " + request.getPlayerId());
+        System.out.println("Pair Player A ID: " + pair.getPlayerAId());
+        System.out.println("Pair Player B ID: " + pair.getPlayerBId());
+        System.out.println("Player A PIN: " + pair.getPlayerAPin());
+        System.out.println("Player B PIN: " + pair.getPlayerBPin());
+        System.out.println("Entered PIN: " + request.getPin());
+        System.out.println("isPlayerA: " + isPlayerA);
+        System.out.println("isPlayerB: " + isPlayerB);
+        System.out.println("Pair Status: " + pair.getStatus());
+        System.out.println("========================================");
         /*
          * The player submitting the PIN must actually
          * belong to this pair.
@@ -513,7 +525,11 @@ public class MatchService {
                 isPlayerA
                         ? pair.getPlayerBPin()
                         : pair.getPlayerAPin();
-
+        System.out.println("EXPECTED PIN: " + expectedPin);
+        System.out.println(
+                "PIN MATCH: " +
+                        expectedPin.equals(request.getPin())
+        );
         /*
          * DEBUG: This is the important PIN debug.
          */
