@@ -337,10 +337,7 @@ public class MatchService {
 
         boolean valid = switch (current) {
 
-            case CREATED ->
-                    next == PairStatus.SEARCHING;
-
-            case SEARCHING ->
+            case CREATED, SEARCHING ->
                     next == PairStatus.FOUND;
 
             case FOUND ->
