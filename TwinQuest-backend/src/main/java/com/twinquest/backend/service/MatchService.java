@@ -48,7 +48,12 @@ public class MatchService {
                 .build();
         Pair savedPair =
                 pairRepository.save(pair);
-
+        System.out.println("========== CREATE PAIR ==========");
+        System.out.println("PAIR CREATED: " + savedPair.getId());
+        System.out.println("INITIAL STATUS: " + savedPair.getStatus());
+        System.out.println("PLAYER A: " + savedPair.getPlayerAId());
+        System.out.println("PLAYER B: " + savedPair.getPlayerBId());
+        System.out.println("=================================");
         GameImage gameImage =
                 imageService.generatePuzzleImage(
                         savedPair.getId()
@@ -68,9 +73,19 @@ public class MatchService {
         savedPair.setStatus(
                 PairStatus.CREATED
         );
+        System.out.println("========== CREATE PAIR FINAL ==========");
+        System.out.println("PAIR ID: " + savedPair.getId());
+        System.out.println("STATUS BEFORE FINAL SAVE: " + savedPair.getStatus());
+        System.out.println("=======================================");
+        savedPair =
+                pairRepository.save(savedPair);
         savedPair =
                 pairRepository.save(savedPair);
 
+        System.out.println("========== CREATE PAIR SAVED ==========");
+        System.out.println("PAIR ID: " + savedPair.getId());
+        System.out.println("FINAL STATUS: " + savedPair.getStatus());
+        System.out.println("======================================");
         updatePlayerStatus(playerAId, PlayerStatus.PAIRED);
         updatePlayerStatus(playerBId, PlayerStatus.PAIRED);
 
@@ -152,6 +167,11 @@ public class MatchService {
     ) {
 
         Pair pair = getPairById(pairId);
+        System.out.println("========== STATUS TRANSITION ==========");
+        System.out.println("PAIR ID: " + pairId);
+        System.out.println("CURRENT STATUS: " + pair.getStatus());
+        System.out.println("REQUESTED STATUS: " + status);
+        System.out.println("=======================================");
 
         validateStatusTransition(
                 pair.getStatus(),
@@ -173,7 +193,7 @@ public class MatchService {
         }
 
         Pair savedPair = pairRepository.save(pair);
-
+        System.out.println("STATUS SAVED TO DATABASE: " + savedPair.getStatus());
         String eventType = switch (status) {
             case CREATED -> "PAIR_CREATED";
             case SEARCHING -> "PAIR_SEARCHING";
@@ -246,7 +266,8 @@ public class MatchService {
         playerService.updatePlayer(player);
     }
     public Pair findAndCreateMatch(String eventId) {
-
+        System.out.println("========== FIND AND CREATE MATCH ==========");
+        System.out.println("Event ID: " + eventId);
         Optional<Player> playerA =
                 playerService.claimWaitingPlayer(eventId);
 
@@ -274,16 +295,29 @@ public class MatchService {
         }
 
 
+        System.out.println("========== MATCHMAKING ==========");
+        System.out.println("EVENT ID: " + eventId);
+
         Pair pair = createPair(
                 eventId,
                 playerA.get().getId(),
                 playerB.get().getId()
         );
 
+        System.out.println("PAIR AFTER createPair()");
+        System.out.println("PAIR ID: " + pair.getId());
+        System.out.println("STATUS: " + pair.getStatus());
+
         pair = updatePairStatus(
                 pair.getId(),
                 PairStatus.SEARCHING
         );
+
+        System.out.println("PAIR AFTER SEARCHING TRANSITION");
+        System.out.println("PAIR ID: " + pair.getId());
+        System.out.println("STATUS: " + pair.getStatus());
+
+        System.out.println("===============================");
 
         return pair;
     }

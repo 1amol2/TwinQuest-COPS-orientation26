@@ -122,12 +122,20 @@ public class EventController {
                 eventService.getEventByCode(eventCode);
 
         event.setStatus(EventStatus.ACTIVE);
-
+        System.out.println("========================================");
+        System.out.println("START MATCHMAKING REQUEST");
+        System.out.println("Event code: " + eventCode);
+        System.out.println("Event ID: " + event.getId());
+        System.out.println("Calling MatchService.startMatchmaking()");
+        System.out.println("========================================");
         int pairsCreated =
                 matchService.startMatchmaking(
                         event.getId()
                 );
-
+        System.out.println("========================================");
+        System.out.println("START MATCHMAKING RESPONSE");
+        System.out.println("Pairs created: " + pairsCreated);
+        System.out.println("========================================");
         return ResponseEntity.ok(
                 Map.of(
                         "status", "SUCCESS",
