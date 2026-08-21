@@ -334,7 +334,12 @@ public class MatchService {
             PairStatus current,
             PairStatus next
     ) {
-
+        System.out.println(
+                "STATUS VALIDATION: "
+                        + current
+                        + " -> "
+                        + next
+        );
         boolean valid = switch (current) {
 
             case CREATED, SEARCHING ->
@@ -349,7 +354,10 @@ public class MatchService {
             case COMPLETED ->
                     false;
         };
-
+        System.out.println(
+                "STATUS TRANSITION VALID? "
+                        + valid
+        );
         if (!valid) {
             throw new BadRequestException(
                     "Invalid pair status transition: "
@@ -692,5 +700,51 @@ public class MatchService {
                         .build();
 
         matchResultRepository.save(result);
+    }
+    public Pair markPairFound(String pairId) {
+
+        System.out.println("========================================");
+        System.out.println("MARK PAIR FOUND CALLED");
+        System.out.println("Pair ID: " + pairId);
+        System.out.println("========================================");
+
+        Pair pair = getPairById(pairId);
+
+        System.out.println("PAIR FOUND IN DATABASE");
+        System.out.println("Pair ID: " + pair.getId());
+        System.out.println("Current Status: " + pair.getStatus());
+        System.out.println("Player A: " + pair.getPlayerAId());
+        System.out.println("Player B: " + pair.getPlayerBId());
+
+        PairStatus previousStatus = pair.getStatus();
+
+        System.out.println(
+                "VALIDATING TRANSITION: "
+                        + previousStatus
+                        + " -> FOUND"
+        );
+
+        validateStatusTransition(
+                previousStatus,
+                PairStatus.FOUND
+        );
+
+        System.out.println("STATUS TRANSITION VALID");
+
+        pair.setStatus(PairStatus.FOUND);
+
+        System.out.println(
+                "STATUS SET IN MEMORY: "
+                        + pair.getStatus()
+        );
+
+        Pair savedPair = pairRepository.save(pair);
+
+        System.out.println("PAIR SAVED TO DATABASE");
+        System.out.println("Pair ID: " + savedPair.getId());
+        System.out.println("Saved Status: " + savedPair.getStatus());
+        System.out.println("========================================");
+
+        return savedPair;
     }
 }

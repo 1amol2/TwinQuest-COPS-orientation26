@@ -54,21 +54,7 @@ public class MatchController {
                 )
         );
     }
-    @PostMapping("/{pairId}/found")
-    public ResponseEntity<PairResponse> pairFound(
-            @PathVariable String pairId
-    ) {
 
-        Pair pair =
-                matchService.updatePairStatus(
-                        pairId,
-                        PairStatus.FOUND
-                );
-
-        return ResponseEntity.ok(
-                PairResponse.from(pair)
-        );
-    }
 
     @PostMapping("/{pairId}/confirm")
     public ResponseEntity<PairResponse> confirmPair(
@@ -96,5 +82,23 @@ public class MatchController {
         return ResponseEntity.ok(
                 PairResponse.from(pair)
         );
+    }
+    @PostMapping("/{pairId}/found")
+    public ResponseEntity<Pair> markPairFound(
+            @PathVariable String pairId
+    ) {
+        System.out.println("========================================");
+        System.out.println("FOUND ENDPOINT HIT");
+        System.out.println("Pair ID: " + pairId);
+        System.out.println("========================================");
+
+        Pair result = matchService.markPairFound(pairId);
+
+        System.out.println("FOUND ENDPOINT RESPONSE");
+        System.out.println("Pair ID: " + result.getId());
+        System.out.println("Status: " + result.getStatus());
+        System.out.println("========================================");
+
+        return ResponseEntity.ok(result);
     }
 }
