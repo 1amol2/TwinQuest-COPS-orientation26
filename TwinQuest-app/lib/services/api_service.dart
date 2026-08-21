@@ -447,6 +447,32 @@ class ApiService {
       );
     }
   }
+  static Future<Map<String, dynamic>> markPairFound({
+    required String pairId,
+  }) async {
+    try {
+      final response = await http
+          .post(
+        Uri.parse('$baseUrl/matches/$pairId/found'),
+      )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+
+      throw NetworkException(
+        'Failed to mark pair as found '
+            '(${response.statusCode}): ${response.body}',
+      );
+    } catch (e) {
+      if (e is NetworkException) rethrow;
+
+      throw NetworkException(
+        'Unable to mark pair as found: $e',
+      );
+    }
+  }
   static Future<String> getGuestId() async {
     final prefs = await SharedPreferences.getInstance();
 

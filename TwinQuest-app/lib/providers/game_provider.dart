@@ -52,10 +52,11 @@ class GameProvider extends ChangeNotifier {
   int _finalDurationMs = 0;
   Timer? _matchTicker;
   Timer? _lobbyPollingTimer;
-
+  Timer? _lobbyRosterTimer;
   // Leaderboard data
   List<dynamic> _leaderboard = [];
-
+  // Live lobby roster
+  List<dynamic> _lobbyPlayers = [];
   // Getters
   GamePhase get phase => _phase;
   String get playerName => _playerName;
@@ -79,7 +80,7 @@ class GameProvider extends ChangeNotifier {
   String get formattedTime => _formattedTime;
   int get finalDurationMs => _finalDurationMs;
   List<dynamic> get leaderboard => _leaderboard;
-
+  List<dynamic> get lobbyPlayers => _lobbyPlayers;
   bool get isSimulatedMode => _bleService.isSimulatedMode;
   double get simulatedDistance => _bleService.simulatedDistance;
 
@@ -171,8 +172,12 @@ class GameProvider extends ChangeNotifier {
       playerId: _playerId,
     );
 
-    // 4. Start lobby polling.
+    // 4. Start lobby matchmaking polling.
     startLobbyMatchmakingPolling();
+
+// 5. Start live lobby roster polling.
+    startLobbyRosterPolling();
+
   }
   void startLobbyMatchmakingPolling() {
     _lobbyPollingTimer?.cancel();
@@ -189,7 +194,12 @@ class GameProvider extends ChangeNotifier {
         String r = matchData['role'] ?? 'LEFT';
         String partner = matchData['partnerName'] ?? 'Orientation Partner';
         String pAvatar = matchData['partnerAvatar'] ?? '🌟';
-        String pPin = matchData['pin'] ?? '1042';
+        final String pPin = (matchData['pin'] ?? '').toString();
+
+        if (pPin.length != 4) {
+          debugPrint('INVALID/MISSING PAIR PIN FROM BACKEND: $matchData');
+          return;
+        }
 
         assignPair(
           pairId: pId,
@@ -201,50 +211,115 @@ class GameProvider extends ChangeNotifier {
       }
     });
   }
+  void startLobbyRosterPolling() {
+    _lobbyRosterTimer?.cancel();
 
+    Future<void> refreshRoster() async {
+      try {
+        final players = await ApiService.getLobbyPlayers(
+          eventId: _eventCode,
+        );
+
+        _lobbyPlayers = players;
+        notifyListeners();
+
+        debugPrint(
+          'LOBBY ROSTER: ${_lobbyPlayers.length} players',
+        );
+      } catch (e) {
+        debugPrint(
+          'LOBBY ROSTER ERROR: $e',
+        );
+      }
+    }
+
+    // Get the roster immediately.
+    refreshRoster();
+
+    // Then keep it updated.
+    _lobbyRosterTimer = Timer.periodic(
+      const Duration(seconds: 1),
+          (_) {
+        if (_phase != GamePhase.waiting) {
+          _lobbyRosterTimer?.cancel();
+          return;
+        }
+
+        refreshRoster();
+      },
+    );
+  }
   void assignPair({
     required String pairId,
     required String partnerName,
     required String partnerAvatar,
     required String imageHalf,
-    String pin = '1042',
+    required String pin,
   }) {
     _lobbyPollingTimer?.cancel();
+    _lobbyRosterTimer?.cancel();
+
     _pairId = pairId;
     _partnerName = partnerName;
     _partnerAvatar = partnerAvatar;
     _imageHalf = imageHalf;
     _pairPin = pin;
     _phase = GamePhase.pairing;
+
     notifyListeners();
   }
 
-  void startProximitySearch() {
+  Future<void> startProximitySearch() async {
     _phase = GamePhase.closer;
+
     _matchStopwatch.reset();
     _matchStopwatch.start();
 
     _matchTicker?.cancel();
-    _matchTicker = Timer.periodic(const Duration(milliseconds: 50), (_) {
-      final elapsed = _matchStopwatch.elapsed;
-      final minutes = (elapsed.inMinutes % 60).toString().padLeft(2, '0');
-      final seconds = (elapsed.inSeconds % 60).toString().padLeft(2, '0');
-      final millis = ((elapsed.inMilliseconds % 1000) ~/ 10).toString().padLeft(2, '0');
-      _formattedTime = '$minutes:$seconds.$millis';
-      notifyListeners();
-    });
 
-    _bleService.startProximityMonitoring(
+    _matchTicker = Timer.periodic(
+      const Duration(milliseconds: 50),
+          (_) {
+        final elapsed = _matchStopwatch.elapsed;
+
+        final minutes =
+        (elapsed.inMinutes % 60).toString().padLeft(2, '0');
+
+        final seconds =
+        (elapsed.inSeconds % 60).toString().padLeft(2, '0');
+
+        final millis =
+        ((elapsed.inMilliseconds % 1000) ~/ 10)
+            .toString()
+            .padLeft(2, '0');
+
+        _formattedTime = '$minutes:$seconds.$millis';
+
+        notifyListeners();
+      },
+    );
+
+    await _bleService.startProximityMonitoring(
       targetPairId: _pairId,
+      playerId: _playerId,
       onUpdate: (rssi, level, distance) {
+        debugPrint(
+          'GAME PROVIDER BLE UPDATE: '
+              'rssi=$rssi '
+              'level=$level '
+              'distance=$distance',
+        );
+
         _rssi = rssi;
         _proximityLevel = level;
         _estimatedDistance = distance;
 
-        if (level == ProximityLevel.touch && _phase == GamePhase.closer) {
+        if (level == ProximityLevel.touch &&
+            _phase == GamePhase.closer) {
           _phase = GamePhase.touchMatch;
           startTouchCountdown();
-        } else if (level != ProximityLevel.touch && _phase == GamePhase.touchMatch) {
+        } else if (level != ProximityLevel.touch &&
+            _phase == GamePhase.touchMatch) {
           cancelTouchCountdown();
           _phase = GamePhase.closer;
         }
@@ -265,12 +340,40 @@ class GameProvider extends ChangeNotifier {
 
       if (_touchElapsedMs >= touchRequiredDurationMs) {
         timer.cancel();
-        // Touch signal confirmed! Require partner PIN verification in UI
+
+        debugPrint(
+          'TOUCH CONFIRMED: pair=$_pairId',
+        );
+
+        markPairAsFound();
       }
       notifyListeners();
     });
   }
+  Future<void> markPairAsFound() async {
+    if (_pairId.isEmpty) {
+      debugPrint('PAIR FOUND: pairId is empty');
+      return;
+    }
 
+    try {
+      debugPrint(
+        'PAIR FOUND: sending FOUND for pair=$_pairId',
+      );
+
+      final result = await ApiService.markPairFound(
+        pairId: _pairId,
+      );
+
+      debugPrint(
+        'PAIR FOUND RESPONSE: $result',
+      );
+    } catch (e) {
+      debugPrint(
+        'PAIR FOUND ERROR: $e',
+      );
+    }
+  }
   void cancelTouchCountdown() {
     _touchTimer?.cancel();
     _touchTimer = null;
@@ -279,50 +382,123 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> completeMatch({String inputPin = ''}) async {
-    final user = await StorageService.getUser();
-    final pinToSend = inputPin.isNotEmpty ? inputPin : _pairPin;
+  Future<bool> completeMatch({
+    String inputPin = '',
+  }) async {
 
-    final res = await ApiService.completeMatch(
-      pairId: _pairId,
-      playerId: _playerId,
-      pin: pinToSend,
-      durationMs: _matchStopwatch.elapsedMilliseconds,
-      userEmail: user['email'] ?? '',
+    final user = await StorageService.getUser();
+
+    final pinToSend =
+    inputPin.isNotEmpty ? inputPin : _pairPin;
+
+    debugPrint(
+      'PIN VERIFY DEBUG: '
+          'pairId=$_pairId '
+          'playerId=$_playerId '
+          'enteredPin=$pinToSend',
     );
 
-    if (res.containsKey('error') || res['status'] == 'FAILURE') {
+    try {
+
+      final res = await ApiService.completeMatch(
+        pairId: _pairId,
+        playerId: _playerId,
+        pin: pinToSend,
+        durationMs: _matchStopwatch.elapsedMilliseconds,
+        userEmail: user['email'] ?? '',
+      );
+
+      debugPrint(
+        'PIN VERIFY RESPONSE: $res',
+      );
+
+      /*
+     * Backend rejected the PIN/request.
+     */
+      if (res.containsKey('error') ||
+          res['status'] == 'FAILURE') {
+
+        debugPrint(
+          'PIN VERIFY FAILED: $res',
+        );
+
+        return false;
+      }
+
+      /*
+     * THIS player verified successfully,
+     * but the partner hasn't verified yet.
+     */
+      if (res['status'] == 'CONFIRMED') {
+
+        debugPrint(
+          'PIN VERIFIED: waiting for partner verification',
+        );
+
+        /*
+       * Important:
+       * Return false so TouchMatchScreen does NOT
+       * navigate to the result screen.
+       *
+       * But we need to distinguish this from
+       * an actually invalid PIN in the UI.
+       */
+        return false;
+      }
+
+      /*
+     * BOTH players have verified.
+     */
+      if (res['status'] == 'COMPLETED') {
+
+        debugPrint(
+          'BOTH PLAYERS VERIFIED: match completed',
+        );
+
+        /*
+       * Existing result/image handling.
+       */
+        _bleService.stopMonitoring();
+
+        _matchStopwatch.stop();
+
+        _matchTicker?.cancel();
+
+        _finalDurationMs =
+            _matchStopwatch.elapsedMilliseconds;
+
+        _phase =
+            GamePhase.matchResult;
+
+        notifyListeners();
+
+        await StorageService.saveMatch(
+          partnerName: _partnerName,
+          timeFormatted: _formattedTime,
+          durationMs: _finalDurationMs,
+          avatar: _partnerAvatar,
+        );
+
+        await fetchLeaderboard();
+
+        return true;
+      }
+
+      debugPrint(
+        'PIN VERIFY: unexpected response status '
+            '${res['status']}',
+      );
+
+      return false;
+
+    } catch (e) {
+
+      debugPrint(
+        'PIN VERIFY ERROR: $e',
+      );
+
       return false;
     }
-
-    // Only known now: the real, unique-to-this-pair image halves generated by the backend.
-    // Nothing before this point ever shows these — pre-match everyone just sees the same
-    // generic locked placeholder, regardless of which pair they're in.
-    if (res['leftHalfImage'] is String && (res['leftHalfImage'] as String).isNotEmpty) {
-      _revealedLeftImage = res['leftHalfImage'];
-    }
-    if (res['rightHalfImage'] is String && (res['rightHalfImage'] as String).isNotEmpty) {
-      _revealedRightImage = res['rightHalfImage'];
-    }
-
-    _bleService.stopMonitoring();
-    _matchStopwatch.stop();
-    _matchTicker?.cancel();
-    _finalDurationMs = _matchStopwatch.elapsedMilliseconds;
-
-    _phase = GamePhase.matchResult;
-    notifyListeners();
-
-    // Save match persistently using Hive / StorageService (only for Google Signed in users)
-    await StorageService.saveMatch(
-      partnerName: _partnerName,
-      timeFormatted: _formattedTime,
-      durationMs: _finalDurationMs,
-      avatar: _partnerAvatar,
-    );
-
-    await fetchLeaderboard();
-    return true;
   }
 
   Future<void> fetchLeaderboard() async {
@@ -333,15 +509,59 @@ class GameProvider extends ChangeNotifier {
     _leaderboard = list;
     notifyListeners();
   }
+  Future<void> returnToPairSearch() async {
+    // Stop BLE proximity monitoring.
+    _bleService.stopMonitoring();
+
+    // Stop match timer.
+    _matchTicker?.cancel();
+    _matchStopwatch.stop();
+    _matchStopwatch.reset();
+
+    // Cancel touch countdown.
+    _touchTimer?.cancel();
+    _touchTimer = null;
+    _touchElapsedMs = 0;
+    _touchProgress = 0.0;
+
+    // Clear current pair information.
+    _pairId = '';
+    _partnerName = 'Mystery Partner';
+    _partnerAvatar = '🌟';
+    _imageHalf = 'LEFT';
+    _pairPin = '1042';
+
+    // Reset proximity state.
+    _rssi = -80;
+    _proximityLevel = ProximityLevel.far;
+    _estimatedDistance = 8.0;
+
+    _formattedTime = '00:00.00';
+
+    // Go back to lobby/waiting state.
+    _phase = GamePhase.waiting;
+
+    notifyListeners();
+
+    // Start looking for a new pair.
+    startLobbyMatchmakingPolling();
+
+    // Resume live lobby roster.
+    startLobbyRosterPolling();
+  }
   void resetGame() {
     WebSocketService().leave();
+
     _lobbyPollingTimer?.cancel();
+    _lobbyRosterTimer?.cancel();
+
     _touchTimer?.cancel();
     _matchTicker?.cancel();
     _matchStopwatch.stop();
     _matchStopwatch.reset();
 
     _pairId = '';
+    _lobbyPlayers = [];
     _partnerName = 'Mystery Partner';
     _imageHalf = 'LEFT';
     _revealedLeftImage = null;

@@ -20,30 +20,30 @@ class _HostLobbyScreenState extends State<HostLobbyScreen> {
   Timer? _lobbyTimer;
   List<dynamic> _players = [];
   bool _isLoading = false;
-
+  bool _isFetchingPlayers = false;
   @override
   void initState() {
     super.initState();
+
     _initializeHostEvent();
 
     _lobbyTimer = Timer.periodic(
-      const Duration(milliseconds: 1500),
-          (_) {
-        _fetchLobbyPlayers();
-      },
+      const Duration(seconds: 1),
+          (_) => _fetchLobbyPlayers(),
     );
   }
   Future<void> _initializeHostEvent() async {
     try {
       final event = await ApiService.createOrientationEvent();
 
-      print('HOST EVENT CREATED/FOUND: $event');
+      debugPrint('HOST EVENT CREATED/FOUND: $event');
 
       if (!mounted) return;
 
-      _fetchLobbyPlayers();
-    } catch (e) {
-      print('HOST EVENT INITIALIZATION ERROR: $e');
+      await _fetchLobbyPlayers();
+    } catch (e, stackTrace) {
+      debugPrint('HOST EVENT INITIALIZATION ERROR: $e');
+      debugPrint('$stackTrace');
     }
   }
   @override
@@ -53,12 +53,50 @@ class _HostLobbyScreenState extends State<HostLobbyScreen> {
   }
 
   Future<void> _fetchLobbyPlayers() async {
-    final provider = Provider.of<GameProvider>(context, listen: false);
-    final players = await ApiService.getLobbyPlayers(eventId: provider.eventCode);
-    if (mounted) {
+    // Prevent multiple overlapping requests.
+    if (_isFetchingPlayers) return;
+
+    _isFetchingPlayers = true;
+
+    try {
+      final game = Provider.of<GameProvider>(
+        context,
+        listen: false,
+      );
+
+      final eventCode = game.eventCode.trim();
+
+      debugPrint(
+        'HOST: fetching lobby players for event = $eventCode',
+      );
+
+      final players = await ApiService.getLobbyPlayers(
+        eventId: eventCode,
+      );
+
+      debugPrint(
+        'HOST: received ${players.length} players',
+      );
+
+      for (final player in players) {
+        debugPrint(
+          'HOST PLAYER: '
+              '${player['name']} '
+              '(${player['playerId'] ?? player['id']}) '
+              'status=${player['status']}',
+        );
+      }
+
+      if (!mounted) return;
+
       setState(() {
-        _players = players;
+        _players = List<dynamic>.from(players);
       });
+    } catch (e, stackTrace) {
+      debugPrint('HOST LOBBY FETCH ERROR: $e');
+      debugPrint('$stackTrace');
+    } finally {
+      _isFetchingPlayers = false;
     }
   }
 
@@ -156,7 +194,7 @@ class _HostLobbyScreenState extends State<HostLobbyScreen> {
                             border: Border.all(color: AppColors.green.withValues(alpha: 0.3)),
                           ),
                           child: Text(
-                            '${_players.length} Ready',
+                            '${_players.length} Online',
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w800,
@@ -249,21 +287,21 @@ class _HostLobbyScreenState extends State<HostLobbyScreen> {
                       onPressed: _isLoading
                           ? null
                           : () async {
-                              final messenger = ScaffoldMessenger.of(context);
-                              final navigator = Navigator.of(context);
-                              setState(() => _isLoading = true);
-                              await ApiService.startMatchmaking(eventId: game.eventCode);
-                              if (mounted) {
-                                setState(() => _isLoading = false);
-                                messenger.showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Pairs matched! Volunteers assigned puzzle image halves.'),
-                                    backgroundColor: AppColors.green,
-                                  ),
-                                );
-                                navigator.pushNamed(AppRoutes.leaderboard);
-                              }
-                            },
+                        final messenger = ScaffoldMessenger.of(context);
+                        final navigator = Navigator.of(context);
+                        setState(() => _isLoading = true);
+                        await ApiService.startMatchmaking(eventId: game.eventCode);
+                        if (mounted) {
+                          setState(() => _isLoading = false);
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('Pairs matched! Volunteers assigned puzzle image halves.'),
+                              backgroundColor: AppColors.green,
+                            ),
+                          );
+                          navigator.pushNamed(AppRoutes.leaderboard);
+                        }
+                      },
                     ),
 
                     const SizedBox(height: 12),

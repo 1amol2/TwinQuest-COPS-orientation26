@@ -170,12 +170,12 @@ class _JoinEventScreenState extends State<JoinEventScreen> {
                         ),
                         boxShadow: isSel
                             ? [
-                                BoxShadow(
-                                  color: primaryAccent.withValues(alpha: 0.3),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ]
+                          BoxShadow(
+                            color: primaryAccent.withValues(alpha: 0.3),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ]
                             : null,
                       ),
                       child: Center(
